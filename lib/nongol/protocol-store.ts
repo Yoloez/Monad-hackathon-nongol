@@ -348,7 +348,7 @@ export const protocolStore = {
     };
   },
 
-  checkIn(attendeeAddress: Address, eventId?: string): { success: boolean; message: string; txHash?: string } {
+  checkIn(attendeeAddress: Address, eventId?: string, customTxHash?: string): { success: boolean; message: string; txHash?: string } {
     const state = loadState();
     const targetId = eventId || state.activeEventId;
     const event = state.events[targetId];
@@ -381,7 +381,7 @@ export const protocolStore = {
       };
     }
 
-    const txHash = `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`;
+    const txHash = customTxHash || `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`;
 
     event.attendees[key] = {
       ...attendee,
