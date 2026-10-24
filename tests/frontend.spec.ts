@@ -166,3 +166,26 @@ test("full organizer flow: live statistics, participant lookup, check-in, and no
   await settleButton.click();
   await expect(page.getByText("Settlement no-show berhasil!", { exact: false })).toBeVisible({ timeout: 5000 });
 });
+
+test("organizer can create a new event and switch active event", async ({
+  page,
+}) => {
+  await page.goto("/organizer");
+
+  // Click "Buat Event Baru"
+  await page.getByRole("button", { name: "Buat Event Baru" }).first().click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+
+  // Fill event details
+  await page.getByLabel("Nama Event *").fill("Monad Hackathon Jogja 2026");
+  await page.getByLabel("Penyelenggara / Komunitas *").fill("Monad Indo");
+  await page.getByRole("button", { name: "Terbitkan Event di Monad" }).click();
+
+  // Dialog should close and event should be listed and active
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByText("Monad Hackathon Jogja 2026").first()).toBeVisible();
+  await expect(page.getByText("berhasil dibuat", { exact: false })).toBeVisible();
+});
+
