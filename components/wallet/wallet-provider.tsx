@@ -25,11 +25,11 @@ const WalletContext = createContext<{ openWallet: () => void } | null>(null);
 const subscribe = () => () => {};
 
 export function useHydrated() {
-  return useSyncExternalStore(
-    subscribe,
-    () => true,
-    () => false,
-  );
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+  return hydrated;
 }
 
 export function useWalletDialog() {

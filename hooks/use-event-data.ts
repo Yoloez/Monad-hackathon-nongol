@@ -74,7 +74,7 @@ export function useEventSummary(): ReadState<
     platformRevenue: string;
   }
 > {
-  const [summary, setSummary] = useState(() => protocolStore.getSummary());
+  const [summary, setSummary] = useState(() => protocolStore.getInitialSummary());
 
   useEffect(() => {
     function update() {
@@ -94,7 +94,7 @@ export function useEventSummary(): ReadState<
  * Hook to retrieve all registered attendees
  */
 export function useAllAttendees(): AttendeeRecord[] {
-  const [attendees, setAttendees] = useState<AttendeeRecord[]>(() => protocolStore.getAllAttendees());
+  const [attendees, setAttendees] = useState<AttendeeRecord[]>(() => protocolStore.getInitialAttendees());
 
   useEffect(() => {
     function update() {

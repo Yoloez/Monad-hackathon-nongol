@@ -22,13 +22,13 @@ const DEFAULT_ATTENDEES: AttendeeRecord[] = [
     address: "0x3a4b7f920831c2d9e15f48b94091a13e2f5b6c81" as Address,
     name: "Ahmad Fauzi (Community)",
     status: "registered",
-    registeredAt: Date.now() - 3600 * 24 * 1000,
+    registeredAt: 1729700000000,
   },
   {
     address: "0x7890abcdef1234567890abcdef1234567890abcd" as Address,
     name: "Siti Rahma (Web3 Jogja)",
     status: "registered",
-    registeredAt: Date.now() - 3600 * 18 * 1000,
+    registeredAt: 1729720000000,
   },
 ];
 
@@ -155,9 +155,9 @@ export const protocolStore = {
 
     // Contract holds 1 MON per attendee still in 'registered' (before check-in or settle)
     const lockedMon = all.filter((a) => a.status === "registered" || a.status === "no-show").length;
-    // 80% to organizer, 20% to platform for settled no-shows
-    const organizerRev = (settled * 0.8).toFixed(1);
-    const platformRev = (settled * 0.2).toFixed(1);
+    // 35% to organizer, 15% to platform, 50% refund to attendee for settled no-shows
+    const organizerRev = (settled * 0.35).toFixed(2);
+    const platformRev = (settled * 0.15).toFixed(2);
 
     return {
       registered,
@@ -169,6 +169,29 @@ export const protocolStore = {
       organizerRevenue: `${organizerRev} MON`,
       platformRevenue: `${platformRev} MON`,
     };
+  },
+
+  getInitialSummary(): EventSummary & {
+    totalSettled: number;
+    stage: EventStage;
+    contractBalance: string;
+    organizerRevenue: string;
+    platformRevenue: string;
+  } {
+    return {
+      registered: 2,
+      checkedIn: 0,
+      noShow: 0,
+      totalSettled: 0,
+      stage: "checkin-open",
+      contractBalance: "2 MON",
+      organizerRevenue: "0.00 MON",
+      platformRevenue: "0.00 MON",
+    };
+  },
+
+  getInitialAttendees(): AttendeeRecord[] {
+    return DEFAULT_ATTENDEES;
   },
 
   register(address: Address, name?: string): { success: boolean; message: string; txHash?: string } {

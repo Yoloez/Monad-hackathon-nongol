@@ -27,8 +27,8 @@ export function EventCard() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successTx, setSuccessTx] = useState<string | null>(null);
 
-  const wrongNetwork = isConnected && chainId !== monadTestnet.id;
-  const isAlreadyRegistered = isConnected && address ? protocolStore.isRegistered(address) : false;
+  const wrongNetwork = hydrated && isConnected && chainId !== monadTestnet.id;
+  const isAlreadyRegistered = hydrated && isConnected && address ? protocolStore.isRegistered(address) : false;
 
   const registeredCount = summary.kind === "ready" ? summary.data.registered : 2;
 
@@ -187,7 +187,7 @@ export function EventCard() {
                   <Icon name="loader" className="spinner" />
                   Securing Spot on Monad…
                 </>
-              ) : !isConnected ? (
+              ) : !hydrated || !isConnected ? (
                 <>
                   Connect Wallet untuk Kunci 1 MON
                   <Icon name="wallet" />
@@ -212,7 +212,7 @@ export function EventCard() {
             )}
 
             <p className="gas-note" id="registration-note">
-              {!isConnected
+              {!hydrated || !isConnected
                 ? "Hubungkan wallet Web3 kamu untuk mengunci 1 MON di Monad."
                 : wrongNetwork
                   ? "Pindah ke Monad Testnet (Chain ID 10143) untuk melanjutkan."

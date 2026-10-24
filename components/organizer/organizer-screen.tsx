@@ -458,8 +458,8 @@ export function OrganizerScreen() {
             subtext: "Batas waktu lewat",
           },
           {
-            label: "Organizer Revenue (80%)",
-            value: stats?.organizerRevenue ?? "0.0 MON",
+            label: "Organizer Revenue (35%)",
+            value: stats?.organizerRevenue ?? "0.00 MON",
             icon: "wallet" as const,
             subtext: "Dari deposit no-show",
           },
@@ -502,8 +502,8 @@ export function OrganizerScreen() {
           )}
         </div>
         <p>
-          Setelah batas check-in berakhir, deposit peserta no-show dibagi{" "}
-          <strong>80% untuk organizer</strong> dan <strong>20% untuk platform NONGOL</strong>.
+          Setelah batas check-in berakhir, 50% deposit peserta no-show dikembalikan ke peserta,{" "}
+          <strong>35% untuk organizer</strong> dan <strong>15% untuk platform NONGOL</strong>.
         </p>
 
         {currentStage !== "checkin-closed" && (
