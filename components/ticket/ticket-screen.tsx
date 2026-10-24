@@ -106,7 +106,7 @@ export function TicketScreen() {
       </div>
 
       {/* Event Selection Bar if multiple events exist */}
-      {allEvents.length > 1 && (
+      {hydrated && allEvents.length > 1 && (
         <div style={{ display: "flex", justifyContent: "center", gap: "8px", flexWrap: "wrap", marginBottom: "20px" }}>
           {allEvents.map((ev) => {
             const isSelected = ev.id === currentEvent.id;
@@ -125,14 +125,14 @@ export function TicketScreen() {
         </div>
       )}
 
-      <div className="selected-event">
+      <div className="selected-event" suppressHydrationWarning>
         <span className="field-label">Event kamu</span>
-        <div className="event-selection">
+        <div className="event-selection" suppressHydrationWarning>
           {currentEvent.name}
           <span className="badge neutral">Monad Testnet</span>
         </div>
       </div>
-      <p className="ticket-context">
+      <p className="ticket-context" suppressHydrationWarning>
         Tiket untuk <strong>{currentEvent.name}</strong>. Satu registrasi per wallet.
       </p>
 
