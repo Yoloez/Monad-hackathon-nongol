@@ -103,7 +103,7 @@ export function CreateEventDialog({
 
       <dialog
         ref={dialogRef}
-        className="wallet-dialog"
+        className="wallet-dialog create-event-dialog"
         style={{ maxWidth: "580px", maxHeight: "90vh", overflowY: "auto" }}
         onClick={(e) => {
           if (e.target === dialogRef.current) closeModal();
@@ -122,24 +122,17 @@ export function CreateEventDialog({
           </button>
         </div>
 
-        <h2 id="create-event-title" style={{ marginTop: "12px", fontSize: "24px" }}>
+        <h2 id="create-event-title" style={{ marginTop: "12px" }}>
           Buat Event Baru
         </h2>
-        <p style={{ color: "var(--muted)", fontSize: "14px", marginTop: "4px", marginBottom: "20px" }}>
+        <p style={{ color: "var(--muted)", marginTop: "4px", marginBottom: "20px" }}>
           Terapkan mekanisme <em>Commit-to-Attend</em> agar peserta benar-benar hadir.
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           {error && (
             <div
-              style={{
-                padding: "10px 14px",
-                background: "rgba(245, 160, 171, 0.15)",
-                border: "1px solid rgba(245, 160, 171, 0.4)",
-                color: "var(--danger)",
-                borderRadius: "8px",
-                fontSize: "13px",
-              }}
+              style={{ padding: "10px 14px", background: "rgba(245, 160, 171, 0.15)", border: "1px solid rgba(245, 160, 171, 0.4)", color: "var(--danger)", borderRadius: "8px" }}
             >
               {error}
             </div>
@@ -159,7 +152,7 @@ export function CreateEventDialog({
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          <div className="form-grid">
             <div>
               <label className="field-label" htmlFor="event-organizer">
                 Penyelenggara / Komunitas *
@@ -201,7 +194,7 @@ export function CreateEventDialog({
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          <div className="form-grid">
             <div>
               <label className="field-label" htmlFor="event-date">
                 Tanggal Event
@@ -226,7 +219,7 @@ export function CreateEventDialog({
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          <div className="form-grid">
             <div>
               <label className="field-label" htmlFor="event-deadline">
                 Batas Registrasi
@@ -251,7 +244,7 @@ export function CreateEventDialog({
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          <div className="form-grid">
             <div>
               <label className="field-label" htmlFor="event-capacity">
                 Kapasitas Peserta
@@ -285,15 +278,7 @@ export function CreateEventDialog({
           </div>
 
           <div
-            style={{
-              padding: "12px 14px",
-              borderRadius: "8px",
-              background: "rgba(131, 110, 249, 0.08)",
-              border: "1px solid rgba(131, 110, 249, 0.25)",
-              fontSize: "12px",
-              color: "var(--muted)",
-              lineHeight: 1.5,
-            }}
+            style={{ padding: "12px 14px", borderRadius: "8px", background: "rgba(131, 110, 249, 0.08)", border: "1px solid rgba(131, 110, 249, 0.25)", color: "var(--muted)" }}
           >
             <strong style={{ color: "var(--purple-light)" }}>Aturan Protokol:</strong> Peserta yang hadir dan check-in akan mendapatkan 100% deposit kembali. Jika tidak hadir sampai batas waktu, 50% deposit dikembalikan ke peserta, 35% untuk organizer, dan 15% untuk platform NONGOL.
           </div>

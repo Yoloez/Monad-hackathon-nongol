@@ -82,9 +82,10 @@ export default function Home() {
           ))}
         </ol>
         <p className="distribution-note">
-          Komitmen yang transparan. Deposit no-show dibagi{" "}
-          <strong>80% untuk organizer</strong> dan{" "}
-          <strong>20% untuk NONGOL.</strong>
+          Komitmen yang transparan. Deposit no-show didistribusikan:{" "}
+          <strong>50% kembali ke peserta</strong>,{" "}
+          <strong>35% untuk organizer</strong>, dan{" "}
+          <strong>15% untuk NONGOL</strong>.
         </p>
       </section>
     </>

@@ -443,7 +443,7 @@ export const protocolStore = {
     saveState(state);
     return {
       success: true,
-      message: `Settlement no-show berhasil! Deposit didistribusikan: 80% ke organizer & 20% ke NONGOL platform.`,
+      message: `Settlement no-show berhasil! Deposit didistribusikan: 50% kembali ke peserta, 35% organizer, & 15% NONGOL platform.`,
       txHash,
     };
   },
@@ -487,7 +487,7 @@ export const protocolStore = {
       count,
       message:
         count > 0
-          ? `Berhasil menyelesaikan ${count} peserta no-show. Total deposit didistribusikan 80/20.`
+          ? `Berhasil menyelesaikan ${count} peserta no-show. Total deposit didistribusikan 50/35/15.`
           : "Tidak ada peserta no-show yang perlu diselesaikan.",
     };
   },
