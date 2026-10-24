@@ -84,7 +84,7 @@ export function TicketScreen() {
   const ticket = useTicketData();
   const loading =
     !hydrated || isConnecting || isReconnecting || ticket.kind === "loading";
-
+  
   // Consider confirmed if ready and matches connected address (allowing 10143 or fallback)
   const confirmed =
     ticket.kind === "ready" &&
@@ -116,7 +116,7 @@ export function TicketScreen() {
                 type="button"
                 className={`button small-button ${isSelected ? "primary" : "secondary"}`}
                 onClick={() => protocolStore.setActiveEventId(ev.id)}
-
+                style={{ fontSize: "13px" }}
               >
                 {ev.name}
               </button>
@@ -143,7 +143,7 @@ export function TicketScreen() {
       ) : confirmed && ticket.kind === "ready" ? (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "20px" }}>
           <TicketCard ticket={ticket.data} event={currentEvent} />
-
+          
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
             <Link href="/organizer" className="button secondary small-button">
               <Icon name="search" size={14} />

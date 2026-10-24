@@ -278,15 +278,39 @@ function ParticipantLookup({
       </p>
 
       {/* Prominent QR Scanner Hero Box */}
-      <div className="scanner-entry">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "14px",
+          padding: "16px 20px",
+          background: "linear-gradient(135deg, rgba(131, 110, 249, 0.16), rgba(115, 213, 177, 0.1))",
+          border: "1px solid rgba(131, 110, 249, 0.35)",
+          borderRadius: "14px",
+          marginBlock: "18px 14px",
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
           <div
-            className="scanner-entry-icon"
+            className="brand-symbol"
+            style={{
+              width: "44px",
+              height: "44px",
+              borderRadius: "12px",
+              background: "var(--purple-light)",
+              color: "#120e1a",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
           >
             <Icon name="qr" size={22} />
           </div>
           <div>
-            <strong style={{ display: "block", color: "var(--foreground)" }}>
+            <strong style={{ fontSize: "16px", display: "block", color: "var(--foreground)" }}>
               Scan QR Tiket Peserta
             </strong>
             <span className="small muted">
@@ -298,7 +322,7 @@ function ParticipantLookup({
           type="button"
           className="button primary"
           onClick={() => setIsScannerOpen(true)}
-
+          style={{ padding: "10px 20px", fontSize: "14px" }}
         >
           <Icon name="camera" size={18} />
           Buka Scanner Tiket
@@ -331,13 +355,19 @@ function ParticipantLookup({
                   key={att.address}
                   type="button"
                   className="button secondary small-button"
-                  style={{ borderColor: isSelected ? "var(--purple-light)" : undefined, background: isSelected ? "rgba(131, 110, 249, 0.2)" : undefined }}
+                  style={{
+                    fontSize: "12px",
+                    padding: "6px 10px",
+                    minHeight: "32px",
+                    borderColor: isSelected ? "var(--purple-light)" : undefined,
+                    background: isSelected ? "rgba(131, 110, 249, 0.2)" : undefined,
+                  }}
                   onClick={() => selectAttendee(att)}
                 >
                   {att.name || shortAddress(att.address)}
                   <span
                     className={`badge ${att.status === "refunded" ? "success" : att.status === "settled" ? "warning" : "purple"}`}
-                    style={{ padding: "2px 6px", marginLeft: "4px" }}
+                    style={{ fontSize: "10px", padding: "2px 6px", marginLeft: "4px" }}
                   >
                     {att.status === "refunded" ? "Checked-in" : att.status === "settled" ? "Settled" : "Terdaftar"}
                   </span>
@@ -410,7 +440,7 @@ function ParticipantLookup({
                 : lookupResult.name || shortAddress(lookupResult.address)}
           </strong>
           {lookupResult && lookupResult !== "not_found" && (
-            <small className="muted" style={{ display: "block", marginTop: "2px" }}>
+            <small className="muted" style={{ display: "block", fontSize: "12px", marginTop: "2px" }}>
               <code>{lookupResult.address}</code>
             </small>
           )}
@@ -740,7 +770,7 @@ function ParticipantLookup({
 export function OrganizerScreen() {
   const hydrated = useHydrated();
   const { address, isConnected } = useConnection();
-
+  
   const currentEvent = useCurrentEvent();
   const allEvents = useAllEvents();
   const summary = useEventSummary();
@@ -828,7 +858,18 @@ export function OrganizerScreen() {
 
       {createdBanner && (
         <div
-          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", background: "rgba(115, 213, 177, 0.12)", border: "1px solid rgba(115, 213, 177, 0.4)", borderRadius: "10px", color: "var(--success)", marginBottom: "24px" }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 18px",
+            background: "rgba(115, 213, 177, 0.12)",
+            border: "1px solid rgba(115, 213, 177, 0.4)",
+            borderRadius: "10px",
+            color: "var(--success)",
+            marginBottom: "24px",
+            fontSize: "14px",
+          }}
         >
           <span>{createdBanner}</span>
           <button
@@ -836,7 +877,7 @@ export function OrganizerScreen() {
             className="icon-button"
             onClick={() => setCreatedBanner(null)}
             aria-label="Tutup notifikasi"
-
+            style={{ width: "24px", height: "24px" }}
           >
             <Icon name="close" size={14} />
           </button>
@@ -847,7 +888,7 @@ export function OrganizerScreen() {
       <div className="dashboard-panel" style={{ marginBottom: "24px", padding: "16px 20px" }} suppressHydrationWarning>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-            <span className="field-label" >
+            <span className="field-label" style={{ fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               Event yang Dikelola ({allEvents.length}):
             </span>
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -862,11 +903,11 @@ export function OrganizerScreen() {
                       protocolStore.setActiveEventId(ev.id);
                       setSettleFeedback(null);
                     }}
-
+                    style={{ fontSize: "13px" }}
                   >
                     {ev.name}
                     {isSelected && (
-                      <span style={{ opacity: 0.8, marginLeft: "4px" }}>
+                      <span style={{ fontSize: "11px", opacity: 0.8, marginLeft: "4px" }}>
                         (Aktif)
                       </span>
                     )}
@@ -921,7 +962,7 @@ export function OrganizerScreen() {
               <Icon name="shield" size={18} />
             </div>
             <div>
-              <strong style={{ display: "block" }}>
+              <strong style={{ display: "block", fontSize: "15px" }}>
                 Organizer Wallet Authorized
               </strong>
               <small className="muted">
@@ -941,7 +982,7 @@ export function OrganizerScreen() {
       <div className="dashboard-panel" style={{ marginBottom: "28px", padding: "18px 24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
           <div>
-            <span className="field-label" >
+            <span className="field-label" style={{ fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               Simulasi Timeline Event (Kontrol Demo):
             </span>
             <p className="small muted">
@@ -996,7 +1037,7 @@ export function OrganizerScreen() {
             subtext: "Batas waktu lewat",
           },
           {
-            label: "Organizer Revenue (35%)",
+            label: "Organizer Revenue (80%)",
             value: stats?.organizerRevenue ?? "0.0 MON",
             icon: "wallet" as const,
             subtext: "Dari deposit no-show",
@@ -1051,7 +1092,15 @@ export function OrganizerScreen() {
 
         {currentStage !== "checkin-closed" && (
           <div
-            style={{ padding: "10px 14px", borderRadius: "8px", background: "rgba(237, 198, 143, 0.12)", border: "1px solid rgba(237, 198, 143, 0.3)", color: "var(--warning)", marginBlock: "12px" }}
+            style={{
+              padding: "10px 14px",
+              borderRadius: "8px",
+              background: "rgba(237, 198, 143, 0.12)",
+              border: "1px solid rgba(237, 198, 143, 0.3)",
+              color: "var(--warning)",
+              fontSize: "13px",
+              marginBlock: "12px",
+            }}
           >
             Check-in masih aktif. Settlement no-show dapat dieksekusi setelah batas check-in berakhir (Gunakan kontrol "3. Deadline Lewat" di atas untuk demo).
           </div>
@@ -1060,7 +1109,7 @@ export function OrganizerScreen() {
         {settleFeedback && (
           <p
             className="success-text"
-            style={{ marginBlock: "10px", padding: "8px 12px", background: "rgba(115, 213, 177, 0.1)", borderRadius: "6px" }}
+            style={{ fontSize: "14px", marginBlock: "10px", padding: "8px 12px", background: "rgba(115, 213, 177, 0.1)", borderRadius: "6px" }}
           >
             {settleFeedback}
           </p>
@@ -1103,7 +1152,7 @@ export function OrganizerScreen() {
                       }`}
                     >
                       {isSettled
-                        ? "Settled (50/35/15)"
+                        ? "Settled (80/20)"
                         : isCheckInDeadlinePassed
                           ? "No-Show (Pending)"
                           : "Terdaftar (Menunggu)"}
@@ -1126,7 +1175,7 @@ export function OrganizerScreen() {
           )}
         </div>
         <p className="small muted action-note">
-          Hasil pembagian: 50% kembali ke peserta, 35% masuk ke wallet organizer, 15% ke NONGOL protocol.
+          Hasil pembagian: 80% masuk ke wallet organizer, 20% ke NONGOL protocol.
         </p>
       </section>
     </section>

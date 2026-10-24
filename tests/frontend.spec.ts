@@ -51,12 +51,6 @@ async function installTestWallet(page: Page, rejectFirst = false) {
               connected = false;
               return null;
             }
-            if (method === "eth_sendTransaction") {
-              return "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            }
-            if (method === "eth_estimateGas") {
-              return "0x5208";
-            }
             throw new Error(`Unexpected test wallet request: ${method}`);
           },
         },

@@ -223,12 +223,23 @@ export function QrScannerModal({
 
       <div style={{ marginTop: "12px", display: "flex", alignItems: "center", gap: "12px" }}>
         <div
-          className="scanner-entry-icon"
+          className="brand-symbol"
+          style={{
+            width: "38px",
+            height: "38px",
+            borderRadius: "10px",
+            background: "var(--purple-light)",
+            color: "#120e1a",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
         >
           <Icon name="camera" size={20} />
         </div>
         <div>
-          <h2 id="scanner-dialog-title" style={{ margin: 0 }}>
+          <h2 id="scanner-dialog-title" style={{ fontSize: "20px", margin: 0 }}>
             Scan Tiket QR Peserta
           </h2>
           <small className="muted">{eventName || "Verifikasi Kehadiran & Refund 100%"}</small>
@@ -265,7 +276,7 @@ export function QrScannerModal({
           {cameraState === "error" && (
             <div className="scanner-state-message" style={{ padding: "20px" }}>
               <Icon name="camera" size={32} style={{ opacity: 0.6 }} />
-              <p style={{ marginTop: "8px", maxWidth: "340px" }}>
+              <p style={{ fontSize: "13px", marginTop: "8px", maxWidth: "340px" }}>
                 {errorMessage}
               </p>
               <button
@@ -294,7 +305,7 @@ export function QrScannerModal({
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
-                className="visually-hidden-file"
+                style={{ display: "none" }}
               />
             </label>
 
@@ -304,7 +315,7 @@ export function QrScannerModal({
           {/* Instant Simulation Pills for Demo / Presentations */}
           {attendees.length > 0 && (
             <div style={{ marginTop: "12px" }}>
-              <span className="field-label" style={{ marginBottom: "6px" }}>
+              <span className="field-label" style={{ fontSize: "11px", marginBottom: "6px" }}>
                 Simulasi Scan Tiket Terdaftar:
               </span>
               <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", maxHeight: "110px", overflowY: "auto" }}>
@@ -313,7 +324,7 @@ export function QrScannerModal({
                     key={att.address}
                     type="button"
                     className="button secondary small-button"
-
+                    style={{ fontSize: "12px", padding: "4px 8px", minHeight: "28px" }}
                     onClick={() => handleSimulateAttendee(att)}
                     aria-label={`Simulasi scan tiket ${att.name || shortAddress(att.address)}`}
                     title={`Simulasi scan tiket ${att.name || att.address}`}
@@ -322,7 +333,7 @@ export function QrScannerModal({
                     <span>{att.name || shortAddress(att.address)}</span>
                     <span
                       className={`badge ${att.status === "refunded" ? "success" : "purple"}`}
-                      style={{ padding: "1px 5px", marginLeft: "4px" }}
+                      style={{ fontSize: "9px", padding: "1px 5px", marginLeft: "4px" }}
                     >
                       {att.status === "refunded" ? "Hadir" : "Belum"}
                     </span>
