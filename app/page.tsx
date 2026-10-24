@@ -1,69 +1,92 @@
-import Image from "next/image";
+import { EventCard } from "@/components/landing/event-card";
+import { HeroTicket } from "@/components/landing/hero-ticket";
+import { MonadMark } from "@/components/ui/brand";
+import { Icon } from "@/components/ui/icon";
+
+const steps = [
+  {
+    title: "Kunci 1 MON",
+    description: "Daftar event dengan deposit sebagai tanda komitmen.",
+  },
+  {
+    title: "Nongol di Event",
+    description: "Datang ke lokasi dan tunjukkan QR tiketmu ke organizer.",
+  },
+  {
+    title: "Deposit Balik!",
+    description: "Check-in dikonfirmasi, 1 MON kembali ke wallet kamu.",
+  },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <>
+      <section className="hero container" aria-labelledby="hero-title">
+        <div className="hero-copy">
+          <h1 id="hero-title">
+            Jangan cuma
+            <br />
+            daftar.{" "}
+            <span>
+              Beneran
+              <br />
+              nongol.
+            </span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p>
+            Kunci 1 MON. Datang ke event. Deposit balik.
+            <br />
+            Karena koneksi yang nyata dimulai dari hadir.
+          </p>
+          <div className="hero-actions">
+            <a href="#event" className="button primary">
+              Lihat Event
+              <Icon name="arrow-right" />
+            </a>
+            <span className="built-on">
+              Built on <MonadMark />
+            </span>
+          </div>
+        </div>
+        <HeroTicket />
+      </section>
+      <section
+        className="event-section container"
+        id="event"
+        aria-labelledby="event-title"
+      >
+        <div className="section-heading">
+          <div>
+            <h2 id="event-title">Yang ini, jangan diwacanain.</h2>
+            <p>Ketemu komunitasnya. Bangun koneksinya. Buktiin komitmennya.</p>
+          </div>
+        </div>
+        <EventCard />
+      </section>
+      <section className="how-section container" aria-labelledby="how-title">
+        <div className="section-heading">
+          <h2 id="how-title">Tiga langkah. Nol wacana.</h2>
+          <p>
+            Gak ribet. Gak pakai drama.
+            <br />
+            Cukup buktiin kalau kamu bakal datang.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+        <ol className="steps">
+          {steps.map((step, index) => (
+            <li className="step" key={step.title}>
+              <span className="step-number">0{index + 1}</span>
+              <h3>{step.title}</h3>
+              <p>{step.description}</p>
+            </li>
+          ))}
+        </ol>
+        <p className="distribution-note">
+          Komitmen yang transparan. Deposit no-show dibagi{" "}
+          <strong>80% untuk organizer</strong> dan{" "}
+          <strong>20% untuk NONGOL.</strong>
+        </p>
+      </section>
+    </>
   );
 }

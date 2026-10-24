@@ -1,4 +1,10 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NONGOL — Anti-Wacana Event Protocol
+
+Frontend MVP for Monad Blitz Jogja 2026, built with Next.js App Router, React, TypeScript, Tailwind CSS, Wagmi, Viem, and TanStack Query.
+
+Routes: `/` (event registration), `/ticket` (My Ticket), `/organizer` (organizer dashboard). Wallet connection targets Monad Testnet, chain ID 10143. Event transactions are unavailable while deployment integration is pending. Any sample tickets and counts are explicitly labeled demo data.
+
+See [frontend integration handoff](docs/frontend-integration.md) for architecture, checks, reference assets, placeholders, and contract integration blockers, including the PRD/contract settlement mismatch.
 
 ## Getting Started
 
