@@ -82,14 +82,14 @@ function loadState(): ProtocolState {
           if (old.attendees) migrated.events[featuredEvent.id].attendees = old.attendees;
           if (old.stage) migrated.events[featuredEvent.id].stage = old.stage;
           if (old.contractAddress) migrated.events[featuredEvent.id].contractAddress = old.contractAddress;
-          saveState(migrated);
+          saveState(migrated, false);
           return migrated;
         } catch {
           // fallback to default
         }
       }
       const def = getDefaultState();
-      saveState(def);
+      saveState(def, false);
       return def;
     }
     const parsed = JSON.parse(raw);
@@ -102,11 +102,13 @@ function loadState(): ProtocolState {
   }
 }
 
-function saveState(state: ProtocolState) {
+function saveState(state: ProtocolState, notify = true) {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: state }));
+    if (notify) {
+      window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: state }));
+    }
   } catch (err) {
     console.error("Failed to save protocol state", err);
   }
@@ -292,8 +294,8 @@ export const protocolStore = {
     const settled = all.filter((a) => a.status === "settled").length;
     const noShow = all.filter((a) => a.status === "no-show" || a.status === "settled").length;
     const lockedMon = all.filter((a) => a.status === "registered" || a.status === "no-show").length;
-    const organizerRev = (settled * 0.8).toFixed(1);
-    const platformRev = (settled * 0.2).toFixed(1);
+    const organizerRev = (settled * 0.35).toFixed(2);
+    const platformRev = (settled * 0.15).toFixed(2);
 
     return {
       registered,
@@ -308,7 +310,7 @@ export const protocolStore = {
     };
   },
 
-  register(address: Address, name?: string, eventId?: string): { success: boolean; message: string; txHash?: string } {
+  register(address: Address, name?: string, customTxHash?: string, eventId?: string): { success: boolean; message: string; txHash?: string } {
     const state = loadState();
     const targetId = eventId || state.activeEventId;
     const event = state.events[targetId];
@@ -325,7 +327,7 @@ export const protocolStore = {
       };
     }
 
-    const txHash = `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`;
+    const txHash = customTxHash || `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`;
 
     event.attendees[key] = {
       address,

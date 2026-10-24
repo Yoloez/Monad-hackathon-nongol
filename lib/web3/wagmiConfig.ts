@@ -12,7 +12,7 @@ export const wagmiConfig = createConfig({
   chains: [monadTestnet],
   connectors: [injected()],
   transports: {
-    [monadTestnet.id]: http("https://testnet-rpc.monad.xyz"),
+    [monadTestnet.id]: http("https://rpc.ankr.com/monad_testnet"),
   },
   ssr: true,
 });

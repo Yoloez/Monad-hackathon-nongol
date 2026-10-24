@@ -11,6 +11,9 @@ export interface EventItem {
   checkInLabel: string;
   capacity: number;
   depositLabel: string;
+  depositAmount?: number;
+  organizerAddress?: string;
+  contractAddress?: string;
   isSample?: boolean;
   createdAt?: number;
 }

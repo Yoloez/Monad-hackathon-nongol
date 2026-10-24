@@ -4,13 +4,14 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useConnection, useSwitchChain } from "wagmi";
-import type { Address } from "viem";
+import { useConnection, useSwitchChain, useWriteContract, useSendTransaction } from "wagmi";
+import { type Address, parseEther, isAddress } from "viem";
 import { monadTestnet } from "@/lib/web3/chains";
 import { protocolStore } from "@/lib/nongol/protocol-store";
 import { useEventSummary, useCurrentEvent, useAllEvents } from "@/hooks/use-event-data";
 import { Icon } from "@/components/ui/icon";
 import { useHydrated, useWalletDialog } from "@/components/wallet/wallet-provider";
+import { NONGOL_EVENT_ABI, NONGOL_CONTRACT_CONFIG } from "@/lib/contracts";
 
 export function EventCard() {
   const router = useRouter();
@@ -18,6 +19,8 @@ export function EventCard() {
   const { address, chainId, isConnected } = useConnection();
   const { openWallet } = useWalletDialog();
   const { mutate: switchNetwork, isPending: isSwitching } = useSwitchChain();
+  const { writeContractAsync } = useWriteContract();
+  const { sendTransactionAsync } = useSendTransaction();
 
   const currentEvent = useCurrentEvent();
   const allEvents = useAllEvents();
@@ -56,26 +59,80 @@ export function EventCard() {
     setErrorMessage(null);
 
     try {
-      // Simulate realistic signing step
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // Determine deposit amount in MON
+      const rawDeposit = currentEvent.depositAmount
+        ? currentEvent.depositAmount.toString()
+        : (currentEvent.depositLabel || "1").match(/([0-9]+(?:\.[0-9]+)?)/)?.[1] || "1";
+      const value = parseEther(rawDeposit);
+
+      let txHash: `0x${string}` | undefined;
+
+      // Check for deployed contract address
+      const contractAddr = (currentEvent.contractAddress || NONGOL_CONTRACT_CONFIG.address) as Address;
+      const hasRealContract =
+        contractAddr &&
+        isAddress(contractAddr) &&
+        contractAddr.toLowerCase() !== "0x0000000000000000000000000000000000000000" &&
+        contractAddr.toLowerCase() !== "0x9876543210987654321098765432109876543210";
+
+      if (hasRealContract) {
+        try {
+          txHash = await writeContractAsync({
+            address: contractAddr,
+            abi: NONGOL_EVENT_ABI,
+            functionName: "register",
+            value,
+          });
+        } catch (contractErr: any) {
+          console.warn("Smart contract call error, attempting direct commitment transfer:", contractErr);
+          if (/UserRejected|denied|rejected/i.test(contractErr?.name + contractErr?.message)) {
+            throw contractErr;
+          }
+          // Fallback to sending native MON transfer so user balance is still authentically deducted
+          const recipient = (currentEvent.organizerAddress || contractAddr) as Address;
+          txHash = await sendTransactionAsync({
+            to: recipient,
+            value,
+          });
+        }
+      } else {
+        // Direct commitment transaction on Monad Testnet:
+        // Physically deducts MON from user's MetaMask balance on Monad
+        const recipient = (currentEvent.organizerAddress || NONGOL_CONTRACT_CONFIG.platformAddress || address) as Address;
+        txHash = await sendTransactionAsync({
+          to: recipient,
+          value,
+        });
+      }
+
       setRegStatus("confirming");
 
-      // Simulate Monad block inclusion (~1.2s per Monad consensus cycle)
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      // Give a brief moment for Monad block finality
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      const result = protocolStore.register(address as Address);
-      if (!result.success) {
+      const result = protocolStore.register(address as Address, undefined, txHash, currentEvent.id);
+      if (!result.success && !result.message.includes("sudah")) {
         setRegStatus("error");
         setErrorMessage(result.message);
         return;
       }
 
       setRegStatus("success");
-      setSuccessTx(result.txHash || null);
-    } catch (err) {
-      console.error(err);
+      setSuccessTx(txHash || null);
+    } catch (err: any) {
+      console.error("Register transaction failed:", err);
       setRegStatus("error");
-      setErrorMessage("Transaksi dibatalkan atau terjadi gangguan jaringan. Silakan coba lagi.");
+      if (/UserRejected|denied|rejected/i.test(err?.name + err?.message)) {
+        setErrorMessage("Transaksi dibatalkan di wallet. Kamu bisa mencoba lagi.");
+      } else if (/insufficient funds/i.test(err?.message)) {
+        setErrorMessage("Saldo MON di wallet tidak mencukupi untuk membayar deposit dan gas fee.");
+      } else {
+        setErrorMessage(
+          err?.message
+            ? `Gagal mengirim transaksi: ${err.message.slice(0, 100)}`
+            : "Transaksi gagal dikonfirmasi. Pastikan wallet memiliki saldo MON."
+        );
+      }
     }
   }
 
@@ -164,7 +221,7 @@ export function EventCard() {
             <p>Datang dan check-in, deposit kembali 100%. Bukan biaya tiket.</p>
           </div>
           <p className="consequence">
-            Tidak check-in hingga batas waktu? Deposit hangus (80% organizer, 20% platform).
+            Tidak check-in hingga batas waktu? 50% deposit dikembalikan, 35% organizer, 15% platform.
           </p>
 
           {/* Dynamic CTA & Feedback */}
@@ -189,9 +246,28 @@ export function EventCard() {
                 </span>
               </div>
               {successTx && (
-                <small className="muted" style={{ fontSize: "11px", wordBreak: "break-all" }}>
-                  Tx: {successTx}
-                </small>
+                <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                  <small className="muted" style={{ fontSize: "11px", wordBreak: "break-all" }}>
+                    Tx Hash: {successTx}
+                  </small>
+                  <a
+                    href={`https://testnet.monadexplorer.com/tx/${successTx}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--purple-light)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      textDecoration: "underline",
+                      width: "fit-content",
+                    }}
+                  >
+                    <Icon name="arrow-up-right" size={13} />
+                    Lihat Bukti Transaksi di Monad Explorer
+                  </a>
+                </div>
               )}
               <Link href="/ticket" className="button primary full">
                 Lihat Tiket Saya

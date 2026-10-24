@@ -23,7 +23,7 @@ export function CreateEventDialog({
   const [regDeadline, setRegDeadline] = useState("27 Oktober 2026, 23:59 WIB");
   const [checkInLabel, setCheckInLabel] = useState("28 Oktober 2026, 13:00–15:00 WIB");
   const [capacity, setCapacity] = useState(50);
-  const [depositLabel, setDepositLabel] = useState("1 MON");
+  const [depositAmount, setDepositAmount] = useState<string>("1");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +67,8 @@ export function CreateEventDialog({
         registrationDeadlineLabel: regDeadline.trim() || "27 Oktober 2026, 23:59 WIB",
         checkInLabel: checkInLabel.trim() || "28 Oktober 2026, 13:00–15:00 WIB",
         capacity: Number(capacity) || 50,
-        depositLabel: depositLabel || "1 MON",
+        depositLabel: `${depositAmount || "1"} MON`,
+        depositAmount: parseFloat(depositAmount) || 1,
         organizerAddress: (address as Address) || ("0x1111111111111111111111111111111111111111" as Address),
       });
 
@@ -267,18 +268,19 @@ export function CreateEventDialog({
             </div>
             <div>
               <label className="field-label" htmlFor="event-deposit">
-                Deposit Komitmen
+                Deposit Komitmen (MON) *
               </label>
-              <select
+              <input
                 id="event-deposit"
+                type="number"
+                step="any"
+                min="0.001"
                 className="nongol-input"
-                value={depositLabel}
-                onChange={(e) => setDepositLabel(e.target.value)}
-              >
-                <option value="1 MON">1 MON (Rekomendasi MVP)</option>
-                <option value="0.5 MON">0.5 MON</option>
-                <option value="2 MON">2 MON</option>
-              </select>
+                placeholder="Contoh: 1"
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(e.target.value)}
+                required
+              />
             </div>
           </div>
 
@@ -293,7 +295,7 @@ export function CreateEventDialog({
               lineHeight: 1.5,
             }}
           >
-            <strong style={{ color: "var(--purple-light)" }}>Aturan Protokol:</strong> Peserta yang hadir dan check-in akan mendapatkan 100% deposit kembali. Jika tidak hadir sampai batas waktu, deposit dibagi 80% untuk organizer dan 20% untuk platform NONGOL.
+            <strong style={{ color: "var(--purple-light)" }}>Aturan Protokol:</strong> Peserta yang hadir dan check-in akan mendapatkan 100% deposit kembali. Jika tidak hadir sampai batas waktu, 50% deposit dikembalikan ke peserta, 35% untuk organizer, dan 15% untuk platform NONGOL.
           </div>
 
           <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
