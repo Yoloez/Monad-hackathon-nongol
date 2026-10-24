@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, type TouchEvent, type KeyboardEvent } from
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useConnection, useSwitchChain, useWriteContract, useSendTransaction } from "wagmi";
+import { useConnection, useSwitchChain, useWriteContract, useSendTransaction, useReadContract } from "wagmi";
 import { type Address, parseEther, isAddress } from "viem";
 import { monadTestnet } from "@/lib/web3/chains";
 import { protocolStore } from "@/lib/nongol/protocol-store";
@@ -32,6 +32,24 @@ export function SingleEventCard({
   const { writeContractAsync } = useWriteContract();
   const { sendTransactionAsync } = useSendTransaction();
 
+  const contractAddr = (event.contractAddress || NONGOL_CONTRACT_CONFIG.address) as Address;
+  const hasRealContract =
+    contractAddr &&
+    isAddress(contractAddr) &&
+    contractAddr.toLowerCase() !== "0x0000000000000000000000000000000000000000" &&
+    contractAddr.toLowerCase() !== "0x9876543210987654321098765432109876543210";
+
+  // Check on-chain registration status to prevent duplicate registration (error 0x3a81d6fc)
+  const { data: onChainStatus } = useReadContract({
+    address: contractAddr,
+    abi: NONGOL_EVENT_ABI,
+    functionName: "getAttendeeStatus",
+    args: address ? [address as Address] : undefined,
+    query: {
+      enabled: Boolean(address && hasRealContract && hydrated && isConnected),
+    },
+  });
+
   const summary = useEventSummary(event.id);
 
   const [regStatus, setRegStatus] = useState<
@@ -41,10 +59,21 @@ export function SingleEventCard({
   const [successTx, setSuccessTx] = useState<string | null>(null);
 
   const wrongNetwork = hydrated && isConnected && chainId !== monadTestnet.id;
+
+  // On-chain status: 1 = Registered, 2 = CheckedInRefunded
+  const isRegisteredOnChain = onChainStatus === 1 || onChainStatus === 2;
+
+  // Automatically sync on-chain status to protocolStore
+  useEffect(() => {
+    if (address && isRegisteredOnChain) {
+      protocolStore.register(address as Address, undefined, undefined, event.id);
+    }
+  }, [address, isRegisteredOnChain, event.id]);
+
   const isAlreadyRegistered =
-    hydrated && isConnected && address
+    (hydrated && isConnected && address
       ? protocolStore.isRegistered(address, event.id)
-      : false;
+      : false) || isRegisteredOnChain;
 
   const registeredCount = summary.kind === "ready" ? summary.data.registered : 0;
 
@@ -96,9 +125,17 @@ export function SingleEventCard({
             value,
           });
         } catch (contractErr: any) {
-          console.warn("Smart contract call error, attempting direct commitment transfer:", contractErr);
+          console.warn("Smart contract call error:", contractErr);
           if (/UserRejected|denied|rejected/i.test(contractErr?.name + contractErr?.message)) {
             throw contractErr;
+          }
+          const cErrStr =
+            (contractErr?.message || "") +
+            (contractErr?.data || "") +
+            (contractErr?.shortMessage || "") +
+            JSON.stringify(contractErr || {});
+          if (/0x3a81d6fc|AlreadyRegistered/i.test(cErrStr)) {
+            throw contractErr; // Let the outer catch handle AlreadyRegistered cleanly!
           }
           // Fallback to sending native MON transfer so user balance is still authentically deducted
           const recipient = (event.organizerAddress || contractAddr) as Address;
@@ -141,6 +178,29 @@ export function SingleEventCard({
       setSuccessTx(txHash || null);
     } catch (err: any) {
       console.error("Register transaction failed:", err);
+      
+      // If error is 0x3a81d6fc (AlreadyRegistered), the user already has a valid on-chain commitment!
+      let errString =
+        (err?.message || "") +
+        " " +
+        (err?.data || "") +
+        " " +
+        (err?.shortMessage || "") +
+        " " +
+        (err?.details || "");
+      try {
+        errString += " " + JSON.stringify(err);
+      } catch {
+        // ignore circular json
+      }
+
+      if (/0x3a81d6fc|AlreadyRegistered/i.test(errString)) {
+        protocolStore.register(address as Address, undefined, undefined, event.id);
+        setRegStatus("success");
+        setErrorMessage(null);
+        return;
+      }
+
       setRegStatus("error");
       if (/UserRejected|denied|rejected/i.test(err?.name + err?.message)) {
         setErrorMessage("Transaksi dibatalkan di wallet. Kamu bisa mencoba lagi.");

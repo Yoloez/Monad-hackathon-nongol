@@ -61,7 +61,7 @@ export function TicketCard({
           </div>
           <span className={`badge ${status.tone}`}>{status.title}</span>
         </div>
-        <TicketQr ticket={ticket} />
+        <TicketQr ticket={ticket} event={event} />
       </div>
       <div className="ticket-status" role="status">
         <span className={`status-dot ${status.tone}`} />

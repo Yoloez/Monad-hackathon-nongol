@@ -25,21 +25,8 @@ export interface EventStoreData {
 const STORAGE_KEY = "nongol_protocol_state_v2";
 const EVENT_NAME = "nongol_protocol_updated";
 
-// Default seed attendees for the initial featured event
-const DEFAULT_ATTENDEES: AttendeeRecord[] = [
-  {
-    address: "0x3a4b7f920831c2d9e15f48b94091a13e2f5b6c81" as Address,
-    name: "Ahmad Fauzi (Community)",
-    status: "registered",
-    registeredAt: 1729700000000,
-  },
-  {
-    address: "0x7890abcdef1234567890abcdef1234567890abcd" as Address,
-    name: "Siti Rahma (Web3 Jogja)",
-    status: "registered",
-    registeredAt: 1729720000000,
-  },
-];
+// Default seed attendees for the initial featured event (starts clean)
+const DEFAULT_ATTENDEES: AttendeeRecord[] = [];
 
 interface ProtocolState {
   events: Record<string, EventStoreData>;
@@ -348,7 +335,7 @@ export const protocolStore = {
     };
   },
 
-  checkIn(attendeeAddress: Address, eventId?: string): { success: boolean; message: string; txHash?: string } {
+  checkIn(attendeeAddress: Address, eventId?: string, customTxHash?: string): { success: boolean; message: string; txHash?: string } {
     const state = loadState();
     const targetId = eventId || state.activeEventId;
     const event = state.events[targetId];
@@ -358,13 +345,16 @@ export const protocolStore = {
     }
 
     const key = attendeeAddress.toLowerCase();
-    const attendee = event.attendees[key];
+    let attendee = event.attendees[key];
 
     if (!attendee) {
-      return {
-        success: false,
-        message: "Alamat wallet tidak ditemukan dalam daftar registrasi event ini.",
+      attendee = {
+        address: attendeeAddress,
+        name: `Peserta (${attendeeAddress.slice(0, 6)}…${attendeeAddress.slice(-4)})`,
+        status: "registered",
+        registeredAt: Date.now(),
       };
+      event.attendees[key] = attendee;
     }
 
     if (attendee.status === "refunded") {
@@ -381,7 +371,7 @@ export const protocolStore = {
       };
     }
 
-    const txHash = `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`;
+    const txHash = customTxHash || `0x${Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")}`;
 
     event.attendees[key] = {
       ...attendee,
