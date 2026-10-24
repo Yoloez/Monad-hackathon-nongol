@@ -189,3 +189,45 @@ test("organizer can create a new event and switch active event", async ({
   await expect(page.getByText("berhasil dibuat", { exact: false })).toBeVisible();
 });
 
+test("landing page event carousel slides between events with next/prev buttons and dots", async ({
+  page,
+}) => {
+  await page.goto("/");
+
+  const carousel = page.getByRole("region", { name: "Pilihan Event Monad" });
+  await expect(carousel).toBeVisible();
+
+  // Verify initial slide (Event 1 / 3)
+  await expect(carousel.getByText("1", { exact: true })).toBeVisible();
+  await expect(carousel.getByText("Monad Builder Meetup Jogja").first()).toBeVisible();
+
+  // Click next button
+  const nextBtn = carousel.getByRole("button", { name: "Lihat event berikutnya" });
+  await nextBtn.click();
+
+  // Verify slide moved to Event 2
+  await expect(carousel.getByText("2", { exact: true })).toBeVisible();
+  await expect(carousel.getByText("Monad Blitz Hackathon 2026").first()).toBeVisible();
+
+  // Click next button again
+  await nextBtn.click();
+
+  // Verify slide moved to Event 3
+  await expect(carousel.getByText("3", { exact: true })).toBeVisible();
+  await expect(carousel.getByText("Monad High-Throughput DeFi Workshop").first()).toBeVisible();
+
+  // Click prev button to go back to Event 2
+  const prevBtn = carousel.getByRole("button", { name: "Lihat event sebelumnya" });
+  await prevBtn.click();
+  await expect(carousel.getByText("2", { exact: true })).toBeVisible();
+  await expect(carousel.getByText("Monad Blitz Hackathon 2026").first()).toBeVisible();
+
+  // Click dot for Event 1
+  const dot1 = page.getByRole("tab", { name: /Buka slide event 1/ });
+  await dot1.click();
+  await expect(carousel.getByText("1", { exact: true })).toBeVisible();
+  await expect(carousel.getByText("Monad Builder Meetup Jogja").first()).toBeVisible();
+});
+
+
+

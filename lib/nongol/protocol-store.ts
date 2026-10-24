@@ -1,5 +1,5 @@
 import type { Address } from "viem";
-import { featuredEvent, type EventItem } from "./event";
+import { featuredEvent, seedEvents, type EventItem } from "./event";
 import type { AttendanceStatus, EventSummary } from "./view-models";
 
 export type EventStage = "registration-open" | "checkin-open" | "checkin-closed";
@@ -47,23 +47,26 @@ interface ProtocolState {
 }
 
 function getDefaultState(): ProtocolState {
-  const attendees: Record<string, AttendeeRecord> = {};
-  for (const att of DEFAULT_ATTENDEES) {
-    attendees[att.address.toLowerCase()] = att;
+  const events: Record<string, EventStoreData> = {};
+
+  for (const ev of seedEvents) {
+    const attendees: Record<string, AttendeeRecord> = {};
+    if (ev.id === featuredEvent.id) {
+      for (const att of DEFAULT_ATTENDEES) {
+        attendees[att.address.toLowerCase()] = att;
+      }
+    }
+    events[ev.id] = {
+      config: ev,
+      stage: "checkin-open",
+      attendees,
+      organizerAddress: "0x1111111111111111111111111111111111111111" as Address,
+      contractAddress: (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as Address) || "0x9876543210987654321098765432109876543210",
+    };
   }
 
-  const initialEvent: EventStoreData = {
-    config: featuredEvent,
-    stage: "checkin-open",
-    attendees,
-    organizerAddress: "0x1111111111111111111111111111111111111111" as Address,
-    contractAddress: (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as Address) || "0x9876543210987654321098765432109876543210",
-  };
-
   return {
-    events: {
-      [featuredEvent.id]: initialEvent,
-    },
+    events,
     activeEventId: featuredEvent.id,
   };
 }
