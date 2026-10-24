@@ -1,21 +1,6 @@
 import type { SVGProps } from "react";
 
-type IconName =
-  | "arrow-right"
-  | "arrow-left"
-  | "arrow-up-right"
-  | "wallet"
-  | "calendar"
-  | "clock"
-  | "pin"
-  | "check"
-  | "close"
-  | "search"
-  | "shield"
-  | "ticket"
-  | "users"
-  | "logout"
-  | "loader";
+type IconName = "arrow-right" | "arrow-left" | "arrow-up-right" | "wallet" | "calendar" | "clock" | "pin" | "check" | "close" | "search" | "shield" | "ticket" | "users" | "logout" | "loader";
 
 const paths: Record<IconName, React.ReactNode> = {
   "arrow-right": (
@@ -94,24 +79,9 @@ const paths: Record<IconName, React.ReactNode> = {
   loader: <path d="M21 12a9 9 0 1 1-9-9" />,
 };
 
-export function Icon({
-  name,
-  size = 18,
-  ...props
-}: SVGProps<SVGSVGElement> & { name: IconName; size?: number }) {
+export function Icon({ name, size = 18, ...props }: SVGProps<SVGSVGElement> & { name: IconName; size?: number }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.7}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
       {paths[name]}
     </svg>
   );
