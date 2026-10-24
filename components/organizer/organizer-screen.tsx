@@ -885,7 +885,7 @@ export function OrganizerScreen() {
       )}
 
       {/* Event Selection & Management Bar */}
-      <div className="dashboard-panel" style={{ marginBottom: "24px", padding: "16px 20px" }}>
+      <div className="dashboard-panel" style={{ marginBottom: "24px", padding: "16px 20px" }} suppressHydrationWarning>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
             <span className="field-label" style={{ fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -1016,7 +1016,7 @@ export function OrganizerScreen() {
       </div>
 
       {/* Live Summary Stats */}
-      <div className="stat-grid" style={{ marginBottom: "32px" }}>
+      <div className="stat-grid" style={{ marginBottom: "32px" }} suppressHydrationWarning>
         {[
           {
             label: "Total Registered",
@@ -1048,7 +1048,7 @@ export function OrganizerScreen() {
               <span>{stat.label}</span>
               <Icon name={stat.icon} />
             </div>
-            <strong>{stat.value}</strong>
+            <strong suppressHydrationWarning>{stat.value}</strong>
             <small>{stat.subtext}</small>
           </div>
         ))}
@@ -1119,6 +1119,7 @@ export function OrganizerScreen() {
           className="settlement-table"
           role="table"
           aria-label="Daftar peserta untuk settlement no-show"
+          suppressHydrationWarning
         >
           <div className="settlement-row table-heading" role="row">
             <span role="columnheader">Peserta</span>
