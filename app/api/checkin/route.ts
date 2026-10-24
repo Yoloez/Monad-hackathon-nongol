@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     let txHash: `0x${string}` | undefined;
 
     // 1. Try smart contract checkIn with organizer account authority
-    const contractAddr = NONGOL_CONTRACT_CONFIG.address;
+    const contractAddr = (process.env.NEXT_PUBLIC_NONGOL_CONTRACT_ADDRESS || NONGOL_CONTRACT_CONFIG.address) as Address;
     const hasContract =
       contractAddr &&
       isAddress(contractAddr) &&

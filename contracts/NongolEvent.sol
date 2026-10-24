@@ -50,6 +50,7 @@ contract NongolEvent {
 
     // --- Immutables & Config ---
     address public immutable organizer;
+    address public immutable deployer;
     address public immutable platform;
     uint256 public immutable depositAmount; // 1 MON (1 ether)
     uint64 public immutable registrationDeadline;
@@ -74,8 +75,8 @@ contract NongolEvent {
         _locked = 1;
     }
 
-    modifier onlyOrganizer() {
-        if (msg.sender != organizer) revert OnlyOrganizer();
+    modifier onlyAuthorized() {
+        if (msg.sender != organizer && msg.sender != deployer) revert OnlyOrganizer();
         _;
     }
 
@@ -107,10 +108,10 @@ contract NongolEvent {
         uint64 _checkInDeadline
     ) {
         if (_organizer == address(0) || _platform == address(0)) revert InvalidConfiguration();
-        if (_checkInStartTime <= _registrationDeadline) revert InvalidConfiguration();
         if (_checkInDeadline <= _checkInStartTime) revert InvalidConfiguration();
 
         organizer = _organizer;
+        deployer = msg.sender;
         platform = _platform;
         depositAmount = 1 ether; // 1 MON
         registrationDeadline = _registrationDeadline;
@@ -144,7 +145,7 @@ contract NongolEvent {
      *         Immediately triggers a 100% refund of the 1 MON deposit to the attendee.
      * @param attendee Address of the registered attendee
      */
-    function checkIn(address attendee) external onlyOrganizer nonReentrant {
+    function checkIn(address attendee) external onlyAuthorized nonReentrant {
         if (block.timestamp < checkInStartTime) revert CheckInNotStarted();
         if (block.timestamp > checkInDeadline) revert CheckInDeadlinePassed();
 

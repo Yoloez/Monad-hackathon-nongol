@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "compile": "hardhat compile",
+    "deploy:hardhat": "hardhat run scripts/deploy-hardhat.js --network monadTestnet"
   },
   "dependencies": {
     "@tanstack/react-query": "5.104.5",
@@ -19,13 +21,16 @@
     "wagmi": "3.7.9"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@playwright/test": "1.58.2",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^18.0.9",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
+    "hardhat": "^2.29.1",
     "solc": "^0.8.38",
     "tailwindcss": "^4",
     "typescript": "^5"
