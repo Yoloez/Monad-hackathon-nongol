@@ -8,7 +8,7 @@ import {
   type AttendeeRecord,
   type EventStage,
 } from "@/lib/nongol/protocol-store";
-import type { EventItem } from "@/lib/nongol/event";
+import { featuredEvent, seedEvents, type EventItem } from "@/lib/nongol/event";
 import type {
   ConfirmedTicket,
   EventSummary,
@@ -16,10 +16,10 @@ import type {
 } from "@/lib/nongol/view-models";
 
 /**
- * Hook to get the currently selected / active event
+ * Hook to get the currently selected / active event (SSR hydration safe)
  */
 export function useCurrentEvent(): EventItem {
-  const [event, setEvent] = useState<EventItem>(() => protocolStore.getActiveEvent());
+  const [event, setEvent] = useState<EventItem>(featuredEvent);
 
   useEffect(() => {
     function update() {
@@ -33,10 +33,10 @@ export function useCurrentEvent(): EventItem {
 }
 
 /**
- * Hook to get all available events
+ * Hook to get all available events (SSR hydration safe)
  */
 export function useAllEvents(): EventItem[] {
-  const [events, setEvents] = useState<EventItem[]>(() => protocolStore.getAllEvents());
+  const [events, setEvents] = useState<EventItem[]>(seedEvents);
 
   useEffect(() => {
     function update() {
@@ -111,7 +111,17 @@ export function useEventSummary(eventId?: string): ReadState<
     eventConfig: EventItem;
   }
 > {
-  const [summary, setSummary] = useState(() => protocolStore.getSummary(eventId));
+  const [summary, setSummary] = useState(() => ({
+    registered: 0,
+    checkedIn: 0,
+    noShow: 0,
+    totalSettled: 0,
+    stage: "checkin-open" as EventStage,
+    contractBalance: "0 MON",
+    organizerRevenue: "0.0 MON",
+    platformRevenue: "0.0 MON",
+    eventConfig: featuredEvent,
+  }));
 
   useEffect(() => {
     function update() {
@@ -128,10 +138,10 @@ export function useEventSummary(eventId?: string): ReadState<
 }
 
 /**
- * Hook to retrieve all registered attendees for an event
+ * Hook to retrieve all registered attendees for an event (SSR hydration safe)
  */
 export function useAllAttendees(eventId?: string): AttendeeRecord[] {
-  const [attendees, setAttendees] = useState<AttendeeRecord[]>(() => protocolStore.getAllAttendees(eventId));
+  const [attendees, setAttendees] = useState<AttendeeRecord[]>([]);
 
   useEffect(() => {
     function update() {
