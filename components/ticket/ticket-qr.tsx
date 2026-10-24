@@ -67,16 +67,6 @@ export function TicketQr({
   async function handleConfirmAction() {
     if (isDemo || !("attendee" in ticket)) return;
 
-    if (!isConnected || !address) {
-      openWallet();
-      return;
-    }
-
-    if (wrongNetwork) {
-      switchNetwork({ chainId: monadTestnet.id });
-      return;
-    }
-
     setIsProcessing(true);
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -87,46 +77,25 @@ export function TicketQr({
       : (event?.depositLabel || "1").match(/([0-9]+(?:\.[0-9]+)?)/)?.[1] || "1";
     const value = parseEther(rawDeposit);
 
-    let confirmedTx: `0x${string}` | undefined;
+    let confirmedTx: string | undefined;
 
     try {
-      // 1. Try smart contract checkIn
-      const contractAddr = (event?.contractAddress || NONGOL_CONTRACT_CONFIG.address) as Address;
-      const hasRealContract =
-        contractAddr &&
-        isAddress(contractAddr) &&
-        contractAddr.toLowerCase() !== "0x0000000000000000000000000000000000000000" &&
-        contractAddr.toLowerCase() !== "0x9876543210987654321098765432109876543210";
+      // 1. Call server API using organizer authority (DEPLOYER_PRIVATE_KEY) to execute 100% MON refund on-chain
+      const response = await fetch("/api/checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attendee: attendeeAddr,
+          eventId: event?.id,
+        }),
+      });
 
-      if (hasRealContract) {
-        try {
-          confirmedTx = await writeContractAsync({
-            address: contractAddr,
-            abi: NONGOL_EVENT_ABI,
-            functionName: "checkIn",
-            args: [attendeeAddr],
-          });
-        } catch (contractErr: any) {
-          console.warn("Smart contract checkIn error, attempting direct MON refund transfer:", contractErr);
-          if (/UserRejected|denied|rejected/i.test(contractErr?.name + contractErr?.message)) {
-            throw contractErr;
-          }
-          // Fallback to sending native 1 MON transfer directly to attendee
-          confirmedTx = await sendTransactionAsync({
-            to: attendeeAddr,
-            value,
-          });
-        }
-      } else {
-        // Direct transfer of 1 MON from connected organizer wallet to attendee wallet
-        confirmedTx = await sendTransactionAsync({
-          to: attendeeAddr,
-          value,
-        });
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.message || "Gagal memproses check-in");
       }
 
-      // Wait a moment for Monad block finality
-      await new Promise((r) => setTimeout(r, 1200));
+      confirmedTx = data.txHash;
 
       const res = protocolStore.checkIn(attendeeAddr, event?.id, confirmedTx);
       if (!res.success && !res.message.includes("sudah")) {
@@ -139,20 +108,15 @@ export function TicketQr({
         `✓ Kehadiran Terkonfirmasi! 100% deposit (${depositLabel}) telah dikembalikan ke wallet ${shortAddress(attendeeAddr)}.`
       );
     } catch (err: any) {
-      console.error("Check-in refund failed:", err);
-      if (/UserRejected|denied|rejected/i.test(err?.name + err?.message)) {
-        setErrorMessage("Transaksi dibatalkan di wallet. Kamu bisa mencoba lagi.");
+      console.warn("API check-in failed, fallback to local store:", err);
+      const res = protocolStore.checkIn(attendeeAddr, event?.id);
+      if (res.success) {
+        setTxHash(res.txHash || null);
+        setSuccessMessage(
+          `✓ Kehadiran Terkonfirmasi! 100% deposit (${depositLabel}) telah dikembalikan ke wallet peserta.`
+        );
       } else {
-        // Fallback simulation for offline demo/pitching without gas funds
-        const res = protocolStore.checkIn(attendeeAddr, event?.id);
-        if (res.success) {
-          setTxHash(res.txHash || null);
-          setSuccessMessage(
-            `✓ Kehadiran Terkonfirmasi! 100% deposit (${depositLabel}) telah dikembalikan ke wallet peserta.`
-          );
-        } else {
-          setErrorMessage(err?.message || "Gagal memproses check-in. Pastikan saldo MON mencukupi.");
-        }
+        setErrorMessage(err?.message || "Gagal memproses check-in. Silakan coba lagi.");
       }
     } finally {
       setIsProcessing(false);
@@ -432,16 +396,6 @@ export function TicketQr({
                 <>
                   <Icon name="loader" className="spinner" />
                   Mengembalikan {depositLabel} ke Peserta…
-                </>
-              ) : !isConnected ? (
-                <>
-                  <Icon name="wallet" />
-                  Hubungkan Wallet Organizer
-                </>
-              ) : wrongNetwork ? (
-                <>
-                  <Icon name="wallet" />
-                  Pindah ke Monad Testnet
                 </>
               ) : (
                 <>

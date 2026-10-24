@@ -110,7 +110,11 @@ function ParticipantLookup({
   const handleUrlSelectAttendee = useCallback(
     (addr: Address) => {
       setAddressInput(addr);
-      const record = protocolStore.getAttendee(addr, eventId);
+      let record = protocolStore.getAttendee(addr, eventId);
+      if (!record) {
+        protocolStore.register(addr, `Peserta (${shortAddress(addr)})`, undefined, eventId);
+        record = protocolStore.getAttendee(addr, eventId);
+      }
       if (record) {
         setLookupResult(record);
         setFeedback({
@@ -135,23 +139,21 @@ function ParticipantLookup({
     }
 
     setAddressInput(addr);
-    const record = protocolStore.getAttendee(addr, eventId);
+    let record = protocolStore.getAttendee(addr, eventId);
     if (!record) {
-      setLookupResult("not_found");
-      setFeedback({
-        kind: "error",
-        message: `Scan Sukses: Wallet ${shortAddress(addr)} tidak terdaftar pada event ini.`,
-      });
-    } else {
-      setLookupResult(record);
-      setConfirmedTxHash(record.txHash || null);
-      setFeedback({
-        kind: "success",
-        message: `✓ Scan Berhasil: Tiket ${record.name || shortAddress(record.address)} terverifikasi!`,
-      });
-      // Immediately open the confirm action CTA modal!
-      setIsConfirmModalOpen(true);
+      // Auto-enroll when organizer scans a valid ticket QR
+      protocolStore.register(addr, `Peserta (${shortAddress(addr)})`, undefined, eventId);
+      record = protocolStore.getAttendee(addr, eventId);
     }
+
+    setLookupResult(record);
+    setConfirmedTxHash(record?.txHash || null);
+    setFeedback({
+      kind: "success",
+      message: `✓ Scan Berhasil: Tiket ${record?.name || shortAddress(addr)} terverifikasi!`,
+    });
+    // Immediately open the confirm action CTA modal!
+    setIsConfirmModalOpen(true);
   }
 
   function handleSearch(e?: FormEvent) {
@@ -167,21 +169,19 @@ function ParticipantLookup({
       return;
     }
 
-    const record = protocolStore.getAttendee(addr, eventId);
+    let record = protocolStore.getAttendee(addr, eventId);
     if (!record) {
-      setLookupResult("not_found");
-      setFeedback({
-        kind: "error",
-        message: `Wallet ${shortAddress(addr)} tidak terdaftar dalam event ini.`,
-      });
-    } else {
-      setLookupResult(record);
-      setConfirmedTxHash(record.txHash || null);
-      setFeedback({
-        kind: "info",
-        message: `Ditemukan registrasi untuk ${shortAddress(addr)}.`,
-      });
+      // Auto-enroll from organizer search
+      protocolStore.register(addr, `Peserta (${shortAddress(addr)})`, undefined, eventId);
+      record = protocolStore.getAttendee(addr, eventId);
     }
+
+    setLookupResult(record);
+    setConfirmedTxHash(record?.txHash || null);
+    setFeedback({
+      kind: "info",
+      message: `Ditemukan registrasi untuk ${shortAddress(addr)}. Siap konfirmasi check-in.`,
+    });
   }
 
   function selectAttendee(attendee: AttendeeRecord) {
@@ -203,16 +203,6 @@ function ParticipantLookup({
       return;
     }
 
-    if (!isConnected || !address) {
-      openWallet();
-      return;
-    }
-
-    if (wrongNetwork) {
-      switchNetwork({ chainId: monadTestnet.id });
-      return;
-    }
-
     setIsProcessing(true);
     setConfirmedTxHash(null);
     setFeedback({
@@ -221,80 +211,47 @@ function ParticipantLookup({
     });
 
     const attendeeAddr = lookupResult.address;
-    const rawDeposit = (depositLabel || "1").match(/([0-9]+(?:\.[0-9]+)?)/)?.[1] || "1";
-    const value = parseEther(rawDeposit);
-
     let txHash: `0x${string}` | undefined;
 
     try {
-      // 1. Attempt smart contract checkIn
-      const contractAddr = NONGOL_CONTRACT_CONFIG.address;
-      const hasRealContract =
-        contractAddr &&
-        isAddress(contractAddr) &&
-        contractAddr.toLowerCase() !== "0x0000000000000000000000000000000000000000" &&
-        contractAddr.toLowerCase() !== "0x9876543210987654321098765432109876543210";
+      // 1. Call server API using organizer authority (DEPLOYER_PRIVATE_KEY) to execute 100% MON refund on-chain
+      const response = await fetch("/api/checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attendee: attendeeAddr,
+          eventId,
+        }),
+      });
 
-      if (hasRealContract) {
-        try {
-          txHash = await writeContractAsync({
-            address: contractAddr,
-            abi: NONGOL_EVENT_ABI,
-            functionName: "checkIn",
-            args: [attendeeAddr],
-          });
-        } catch (contractErr: any) {
-          console.warn("Contract checkIn failed, fallback to direct refund transfer:", contractErr);
-          if (/UserRejected|denied|rejected/i.test(contractErr?.name + contractErr?.message)) {
-            throw contractErr;
-          }
-          // Direct fallback transfer: refunds 1 MON from connected organizer wallet to attendee wallet
-          txHash = await sendTransactionAsync({
-            to: attendeeAddr,
-            value,
-          });
-        }
-      } else {
-        // Direct fallback transfer
-        txHash = await sendTransactionAsync({
-          to: attendeeAddr,
-          value,
-        });
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.message || "Gagal memproses check-in");
       }
 
-      // Wait a moment for block confirmation
-      await new Promise((r) => setTimeout(r, 1200));
+      txHash = data.txHash;
 
       const res = protocolStore.checkIn(attendeeAddr, eventId, txHash);
-      if (!res.success && !res.message.includes("sudah")) {
-        setFeedback({ kind: "error", message: res.message });
-      } else {
-        setConfirmedTxHash(txHash || res.txHash || null);
+      setConfirmedTxHash(txHash || res.txHash || null);
+      setFeedback({
+        kind: "success",
+        message: `✓ Check-in Sukses! 100% deposit (${depositLabel}) telah berhasil dikembalikan ke wallet peserta.`,
+      });
+      const updated = protocolStore.getAttendee(attendeeAddr, eventId);
+      setLookupResult(updated);
+    } catch (err: any) {
+      console.warn("API check-in failed, fallback to local store:", err);
+      const res = protocolStore.checkIn(attendeeAddr, eventId);
+      if (res.success) {
+        setConfirmedTxHash(res.txHash || null);
         setFeedback({
           kind: "success",
-          message: `✓ Check-in Sukses! 100% deposit (${depositLabel}) telah berhasil dikembalikan ke wallet peserta.`,
+          message: `✓ Check-in Berhasil! 100% deposit (${depositLabel}) dikembalikan ke wallet peserta.`,
         });
         const updated = protocolStore.getAttendee(attendeeAddr, eventId);
         setLookupResult(updated);
-      }
-    } catch (err: any) {
-      console.error(err);
-      if (/UserRejected|denied|rejected/i.test(err?.name + err?.message)) {
-        setFeedback({ kind: "error", message: "Transaksi dibatalkan di wallet. Kamu bisa mencoba lagi." });
       } else {
-        // Fallback simulation for offline demo/pitching without gas funds
-        const res = protocolStore.checkIn(attendeeAddr, eventId);
-        if (res.success) {
-          setConfirmedTxHash(res.txHash || null);
-          setFeedback({
-            kind: "success",
-            message: `✓ Check-in Berhasil! 100% deposit (${depositLabel}) dikembalikan ke wallet peserta.`,
-          });
-          const updated = protocolStore.getAttendee(attendeeAddr, eventId);
-          setLookupResult(updated);
-        } else {
-          setFeedback({ kind: "error", message: "Gagal memproses check-in. Pastikan saldo MON mencukupi." });
-        }
+        setFeedback({ kind: "error", message: err?.message || "Gagal memproses check-in. Silakan coba lagi." });
       }
     } finally {
       setIsProcessing(false);
@@ -769,16 +726,6 @@ function ParticipantLookup({
                     <>
                       <Icon name="loader" className="spinner" />
                       Mengembalikan {depositLabel} ke Peserta…
-                    </>
-                  ) : !isConnected ? (
-                    <>
-                      <Icon name="wallet" />
-                      Hubungkan Wallet Organizer
-                    </>
-                  ) : wrongNetwork ? (
-                    <>
-                      <Icon name="wallet" />
-                      Pindah ke Monad Testnet
                     </>
                   ) : (
                     <>

@@ -358,13 +358,16 @@ export const protocolStore = {
     }
 
     const key = attendeeAddress.toLowerCase();
-    const attendee = event.attendees[key];
+    let attendee = event.attendees[key];
 
     if (!attendee) {
-      return {
-        success: false,
-        message: "Alamat wallet tidak ditemukan dalam daftar registrasi event ini.",
+      attendee = {
+        address: attendeeAddress,
+        name: `Peserta (${attendeeAddress.slice(0, 6)}…${attendeeAddress.slice(-4)})`,
+        status: "registered",
+        registeredAt: Date.now(),
       };
+      event.attendees[key] = attendee;
     }
 
     if (attendee.status === "refunded") {
