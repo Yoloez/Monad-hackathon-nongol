@@ -16,10 +16,26 @@ type IconName =
   | "users"
   | "logout"
   | "loader"
-  | "plus";
+  | "plus"
+  | "camera"
+  | "qr";
 
 const paths: Record<IconName, React.ReactNode> = {
   plus: <path d="M12 5v14m-7-7h14" />,
+  camera: (
+    <>
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+      <circle cx="12" cy="13" r="3" />
+    </>
+  ),
+  qr: (
+    <>
+      <rect width="5" height="5" x="3" y="3" rx="1" />
+      <rect width="5" height="5" x="16" y="3" rx="1" />
+      <rect width="5" height="5" x="3" y="16" rx="1" />
+      <path d="M21 16h-3a2 2 0 0 0-2 2v3m0-5v.01m5 5v.01M12 7v3m-5 2h3m2 4h.01M12 12h.01" />
+    </>
+  ),
   "arrow-right": (
     <>
       <path d="M5 12h14" />

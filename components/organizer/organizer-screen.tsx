@@ -9,8 +9,19 @@ import { Icon } from "@/components/ui/icon";
 import { WalletButton, useHydrated } from "@/components/wallet/wallet-provider";
 import { shortAddress, attendanceLabels } from "@/lib/nongol/view-models";
 import { CreateEventDialog } from "./create-event-dialog";
+import { QrScannerModal } from "./qr-scanner-modal";
 
-function ParticipantLookup({ currentStage, eventId, depositLabel }: { currentStage: EventStage; eventId: string; depositLabel: string }) {
+function ParticipantLookup({
+  currentStage,
+  eventId,
+  depositLabel,
+  eventName,
+}: {
+  currentStage: EventStage;
+  eventId: string;
+  depositLabel: string;
+  eventName?: string;
+}) {
   const [addressInput, setAddressInput] = useState("");
   const [lookupResult, setLookupResult] = useState<AttendeeRecord | null | "not_found">(null);
   const [feedback, setFeedback] = useState<{
@@ -18,6 +29,7 @@ function ParticipantLookup({ currentStage, eventId, depositLabel }: { currentSta
     message: string;
   } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const allAttendees = useAllAttendees(eventId);
 
   function parseAttendeeAddress(input: string): Address | null {
@@ -34,6 +46,34 @@ function ParticipantLookup({ currentStage, eventId, depositLabel }: { currentSta
       // not json
     }
     return null;
+  }
+
+  function handleScanSuccess(rawPayload: string) {
+    const addr = parseAttendeeAddress(rawPayload);
+    if (!addr) {
+      setFeedback({
+        kind: "error",
+        message: "Format QR tidak dikenali sebagai tiket NONGOL yang valid.",
+      });
+      setLookupResult(null);
+      return;
+    }
+
+    setAddressInput(addr);
+    const record = protocolStore.getAttendee(addr, eventId);
+    if (!record) {
+      setLookupResult("not_found");
+      setFeedback({
+        kind: "error",
+        message: `Scan Sukses: Wallet ${shortAddress(addr)} tidak terdaftar pada event ini.`,
+      });
+    } else {
+      setLookupResult(record);
+      setFeedback({
+        kind: "success",
+        message: `✓ Scan Berhasil: Tiket ${record.name || shortAddress(record.address)} terverifikasi!`,
+      });
+    }
   }
 
   function handleSearch(e?: FormEvent) {
@@ -112,8 +152,68 @@ function ParticipantLookup({ currentStage, eventId, depositLabel }: { currentSta
         <h2 id="lookup-title">Peserta sudah nongol?</h2>
       </div>
       <p>
-        Cari wallet peserta atau pilih dari daftar terdaftar, lalu konfirmasi kehadiran di lokasi.
+        Pindai QR tiket peserta dengan kamera perangkat, atau cari manual alamat wallet peserta untuk konfirmasi kehadiran dan pengembalian 100% deposit.
       </p>
+
+      {/* Prominent QR Scanner Hero Box */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "14px",
+          padding: "16px 20px",
+          background: "linear-gradient(135deg, rgba(131, 110, 249, 0.16), rgba(115, 213, 177, 0.1))",
+          border: "1px solid rgba(131, 110, 249, 0.35)",
+          borderRadius: "14px",
+          marginBlock: "18px 14px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+          <div
+            className="brand-symbol"
+            style={{
+              width: "44px",
+              height: "44px",
+              borderRadius: "12px",
+              background: "var(--purple-light)",
+              color: "#120e1a",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Icon name="camera" size={22} />
+          </div>
+          <div>
+            <strong style={{ fontSize: "16px", display: "block", color: "var(--foreground)" }}>
+              Scan QR Tiket Peserta
+            </strong>
+            <span className="small muted">
+              Gunakan kamera ponsel/laptop atau upload file gambar tiket untuk verifikasi langsung.
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="button primary"
+          onClick={() => setIsScannerOpen(true)}
+          style={{ padding: "10px 20px", fontSize: "14px" }}
+        >
+          <Icon name="camera" size={18} />
+          Buka Scanner Tiket
+        </button>
+      </div>
+
+      <QrScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanSuccess={handleScanSuccess}
+        attendees={allAttendees}
+        eventName={eventName}
+      />
 
       {/* Quick picker pills */}
       <div style={{ marginTop: "14px", marginBottom: "8px" }}>
@@ -158,7 +258,7 @@ function ParticipantLookup({ currentStage, eventId, depositLabel }: { currentSta
 
       <form onSubmit={handleSearch} noValidate style={{ marginTop: "12px" }}>
         <label className="field-label" htmlFor="attendee-address">
-          Alamat wallet peserta atau data QR
+          Alamat wallet peserta atau data QR manual
         </label>
         <div className="lookup-row">
           <input
@@ -175,6 +275,15 @@ function ParticipantLookup({ currentStage, eventId, depositLabel }: { currentSta
             aria-invalid={feedback?.kind === "invalid"}
             aria-describedby="lookup-feedback"
           />
+          <button
+            type="button"
+            className="button secondary"
+            onClick={() => setIsScannerOpen(true)}
+            title="Buka scanner tiket dengan kamera"
+          >
+            <Icon name="camera" size={16} />
+            Scan QR
+          </button>
           <button className="button secondary" type="submit">
             <Icon name="search" size={16} />
             Cari Peserta
@@ -545,8 +654,8 @@ export function OrganizerScreen() {
             subtext: "Batas waktu lewat",
           },
           {
-            label: "Organizer Revenue (35%)",
-            value: stats?.organizerRevenue ?? "0.00 MON",
+            label: "Organizer Revenue (80%)",
+            value: stats?.organizerRevenue ?? "0.0 MON",
             icon: "wallet" as const,
             subtext: "Dari deposit no-show",
           },
@@ -567,6 +676,7 @@ export function OrganizerScreen() {
         currentStage={currentStage}
         eventId={currentEvent.id}
         depositLabel={currentEvent.depositLabel || "1 MON"}
+        eventName={currentEvent.name}
       />
 
       {/* No-Show Settlement Panel */}
