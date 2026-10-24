@@ -32,9 +32,7 @@ export function SingleEventCard({
   const { writeContractAsync } = useWriteContract();
   const { sendTransactionAsync } = useSendTransaction();
 
-  const currentEvent = useCurrentEvent();
-  const allEvents = useAllEvents();
-  const summary = useEventSummary();
+  const summary = useEventSummary(event.id);
 
   const [regStatus, setRegStatus] = useState<
     "idle" | "signing" | "confirming" | "success" | "error"
@@ -74,15 +72,15 @@ export function SingleEventCard({
 
     try {
       // Determine deposit amount in MON
-      const rawDeposit = currentEvent.depositAmount
-        ? currentEvent.depositAmount.toString()
-        : (currentEvent.depositLabel || "1").match(/([0-9]+(?:\.[0-9]+)?)/)?.[1] || "1";
+      const rawDeposit = event.depositAmount
+        ? event.depositAmount.toString()
+        : (event.depositLabel || "1").match(/([0-9]+(?:\.[0-9]+)?)/)?.[1] || "1";
       const value = parseEther(rawDeposit);
 
       let txHash: `0x${string}` | undefined;
 
       // Check for deployed contract address
-      const contractAddr = (currentEvent.contractAddress || NONGOL_CONTRACT_CONFIG.address) as Address;
+      const contractAddr = (event.contractAddress || NONGOL_CONTRACT_CONFIG.address) as Address;
       const hasRealContract =
         contractAddr &&
         isAddress(contractAddr) &&
@@ -103,7 +101,7 @@ export function SingleEventCard({
             throw contractErr;
           }
           // Fallback to sending native MON transfer so user balance is still authentically deducted
-          const recipient = (currentEvent.organizerAddress || contractAddr) as Address;
+          const recipient = (event.organizerAddress || contractAddr) as Address;
           txHash = await sendTransactionAsync({
             to: recipient,
             value,
@@ -112,7 +110,7 @@ export function SingleEventCard({
       } else {
         // Direct commitment transaction on Monad Testnet:
         // Physically deducts MON from user's MetaMask balance on Monad
-        const recipient = (currentEvent.organizerAddress || NONGOL_CONTRACT_CONFIG.platformAddress || address) as Address;
+        const recipient = (event.organizerAddress || NONGOL_CONTRACT_CONFIG.platformAddress || address) as Address;
         txHash = await sendTransactionAsync({
           to: recipient,
           value,
@@ -124,7 +122,7 @@ export function SingleEventCard({
       // Give a brief moment for Monad block finality
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      const result = protocolStore.register(address as Address, undefined, txHash, currentEvent.id);
+      const result = protocolStore.register(address as Address, undefined, txHash, event.id);
       if (!result.success && !result.message.includes("sudah")) {
         setRegStatus("error");
         setErrorMessage(result.message);
@@ -208,7 +206,7 @@ export function SingleEventCard({
           <p>Datang dan check-in, deposit kembali 100%. Bukan biaya tiket.</p>
         </div>
         <p className="consequence">
-          Tidak check-in hingga batas waktu? Deposit hangus (80% organizer, 20% platform).
+          Tidak check-in hingga batas waktu? 50% deposit dikembalikan, 35% organizer, 15% platform.
         </p>
 
         {/* Dynamic CTA & Feedback */}
@@ -233,9 +231,28 @@ export function SingleEventCard({
               </span>
             </div>
             {successTx && (
-              <small className="muted" style={{ fontSize: "11px", wordBreak: "break-all" }}>
-                Tx: {successTx}
-              </small>
+              <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                <small className="muted" style={{ fontSize: "11px", wordBreak: "break-all" }}>
+                  Tx Hash: {successTx}
+                </small>
+                <a
+                  href={`https://testnet.monadexplorer.com/tx/${successTx}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--purple-light)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    textDecoration: "underline",
+                    width: "fit-content",
+                  }}
+                >
+                  <Icon name="arrow-up-right" size={13} />
+                  Lihat Bukti Transaksi di Monad Explorer
+                </a>
+              </div>
             )}
             <Link
               href="/ticket"
@@ -246,63 +263,40 @@ export function SingleEventCard({
               <Icon name="arrow-right" />
             </Link>
           </div>
-
-          <div className="deposit-area">
-            <div>
-              <span className="field-label">Komitmen kehadiran</span>
-              <strong>{currentEvent.depositLabel || "1 MON"}</strong>
-            </div>
-            <span className="success-text small">100% refundable</span>
-            <p>Datang dan check-in, deposit kembali 100%. Bukan biaya tiket.</p>
-          </div>
-          <p className="consequence">
-            Tidak check-in hingga batas waktu? 50% deposit dikembalikan, 35% organizer, 15% platform.
-          </p>
-
-          {/* Dynamic CTA & Feedback */}
-          {isAlreadyRegistered || regStatus === "success" ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "16px" }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "10px 14px",
-                  borderRadius: "8px",
-                  background: "rgba(115, 213, 177, 0.12)",
-                  border: "1px solid rgba(115, 213, 177, 0.35)",
-                  color: "var(--success)",
-                  fontSize: "14px",
-                }}
-              >
-                <Icon name="check" size={16} />
-                <span>
-                  <strong>Kamu sudah terdaftar!</strong> Komitmen {currentEvent.depositLabel || "1 MON"} telah terkunci.
-                </span>
-              </div>
-              {successTx && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-                  <small className="muted" style={{ fontSize: "11px", wordBreak: "break-all" }}>
-                    Tx Hash: {successTx}
-                  </small>
-                  <a
-                    href={`https://testnet.monadexplorer.com/tx/${successTx}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      fontSize: "12px",
-                      color: "var(--purple-light)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px",
-                      textDecoration: "underline",
-                      width: "fit-content",
-                    }}
-                  >
-                    <Icon name="arrow-up-right" size={13} />
-                    Lihat Bukti Transaksi di Monad Explorer
-                  </a>
-                </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "16px" }}>
+            <button
+              type="button"
+              className="button primary full"
+              onClick={handleRegister}
+              disabled={regStatus === "signing" || regStatus === "confirming"}
+              aria-describedby={`registration-note-${event.id}`}
+            >
+              {regStatus === "signing" ? (
+                <>
+                  <Icon name="loader" className="spin" />
+                  Konfirmasi di Wallet...
+                </>
+              ) : regStatus === "confirming" ? (
+                <>
+                  <Icon name="loader" className="spin" />
+                  Menunggu Konfirmasi Monad...
+                </>
+              ) : !isConnected ? (
+                <>
+                  <Icon name="wallet" />
+                  Hubungkan Wallet & Kunci Komitmen
+                </>
+              ) : wrongNetwork ? (
+                <>
+                  <Icon name="wallet" />
+                  Pindah ke Monad Testnet
+                </>
+              ) : (
+                <>
+                  <Icon name="shield" />
+                  Kunci Komitmen & Daftar Event
+                </>
               )}
             </button>
 
@@ -352,6 +346,8 @@ export function EventCarousel() {
     }
   }, [currentEvent.id, events]);
 
+  const safeIndex = Math.min(currentIndex, Math.max(0, events.length - 1));
+
   function goToSlide(index: number) {
     if (index >= 0 && index < events.length) {
       setCurrentIndex(index);
@@ -360,8 +356,8 @@ export function EventCarousel() {
   }
 
   function prevSlide() {
-    if (currentIndex > 0) {
-      goToSlide(currentIndex - 1);
+    if (safeIndex > 0) {
+      goToSlide(safeIndex - 1);
     } else {
       // Loop to end
       goToSlide(events.length - 1);
@@ -369,8 +365,8 @@ export function EventCarousel() {
   }
 
   function nextSlide() {
-    if (currentIndex < events.length - 1) {
-      goToSlide(currentIndex + 1);
+    if (safeIndex < events.length - 1) {
+      goToSlide(safeIndex + 1);
     } else {
       // Loop to start
       goToSlide(0);
@@ -427,11 +423,11 @@ export function EventCarousel() {
         <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
           <span className="carousel-counter-badge">
             <span>Event</span>
-            <strong>{currentIndex + 1}</strong>
+            <strong>{safeIndex + 1}</strong>
             <span style={{ opacity: 0.6 }}>/ {events.length}</span>
           </span>
           <span style={{ color: "var(--foreground)", fontSize: "14px", fontWeight: 500 }}>
-            {events[currentIndex]?.name}
+            {events[safeIndex]?.name}
           </span>
         </div>
 
@@ -467,15 +463,15 @@ export function EventCarousel() {
       >
         <div
           className="carousel-track"
-          style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+          style={{ transform: `translateX(-${safeIndex * 100}%)` }}
         >
           {events.map((ev, index) => (
             <div
               key={ev.id}
               className="carousel-slide"
-              aria-hidden={index !== currentIndex}
+              aria-hidden={index !== safeIndex}
             >
-              <SingleEventCard event={ev} isActive={index === currentIndex} />
+              <SingleEventCard event={ev} isActive={index === safeIndex} />
             </div>
           ))}
         </div>
@@ -489,9 +485,9 @@ export function EventCarousel() {
               key={ev.id}
               type="button"
               role="tab"
-              aria-selected={idx === currentIndex}
+              aria-selected={idx === safeIndex}
               aria-label={`Buka slide event ${idx + 1}: ${ev.name}`}
-              className={`carousel-dot ${idx === currentIndex ? "active" : ""}`}
+              className={`carousel-dot ${idx === safeIndex ? "active" : ""}`}
               onClick={() => goToSlide(idx)}
             />
           ))}
