@@ -145,7 +145,7 @@ test("full organizer flow: live statistics, participant lookup, check-in, and no
 
   // Test participant lookup with sample attendee
   const sampleAttendee = "0x3a4b7f920831c2d9e15f48b94091a13e2f5b6c81";
-  await page.getByLabel("Alamat wallet peserta atau data QR").fill(sampleAttendee);
+  await page.getByLabel(/Alamat wallet peserta/).fill(sampleAttendee);
   await page.getByRole("button", { name: "Cari Peserta" }).click();
 
   await expect(page.getByText("Ditemukan registrasi untuk")).toBeVisible();
@@ -165,6 +165,32 @@ test("full organizer flow: live statistics, participant lookup, check-in, and no
   await expect(settleButton).toBeEnabled();
   await settleButton.click();
   await expect(page.getByText("Settlement no-show berhasil!", { exact: false })).toBeVisible({ timeout: 5000 });
+});
+
+test("organizer can open QR scanner modal and scan attendee ticket", async ({
+  page,
+}) => {
+  await page.goto("/organizer");
+
+  // Click "Buka Scanner Tiket"
+  const openScannerBtn = page.getByRole("button", { name: "Buka Scanner Tiket" }).first();
+  await expect(openScannerBtn).toBeVisible();
+  await openScannerBtn.click();
+
+  // Scanner modal should be visible
+  const modal = page.getByRole("dialog");
+  await expect(modal).toBeVisible();
+  await expect(modal.getByText("Scan Tiket QR Peserta")).toBeVisible();
+
+  // Simulate scanning a registered attendee
+  const simBtn = modal.getByRole("button", { name: /Simulasi scan tiket/ }).first();
+  await expect(simBtn).toBeVisible();
+  await simBtn.click();
+
+  // Modal should close and participant should be identified
+  await expect(modal).not.toBeVisible();
+  await expect(page.getByText("Scan Berhasil", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Confirm Check-in/ })).toBeEnabled();
 });
 
 test("organizer can create a new event and switch active event", async ({
