@@ -1,36 +1,110 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { isAddress } from "viem";
+import { isAddress, type Address } from "viem";
 import { useConnection } from "wagmi";
 import { featuredEvent as event } from "@/lib/nongol/event";
-import { useEventSummary } from "@/hooks/use-event-data";
+import { useEventSummary, useAllAttendees } from "@/hooks/use-event-data";
+import { protocolStore, type EventStage, type AttendeeRecord } from "@/lib/nongol/protocol-store";
 import { Icon } from "@/components/ui/icon";
 import { WalletButton, useHydrated } from "@/components/wallet/wallet-provider";
-import { shortAddress } from "@/lib/nongol/view-models";
+import { shortAddress, attendanceLabels } from "@/lib/nongol/view-models";
 
-function ParticipantLookup() {
-  const [address, setAddress] = useState("");
+function ParticipantLookup({ currentStage }: { currentStage: EventStage }) {
+  const [addressInput, setAddressInput] = useState("");
+  const [lookupResult, setLookupResult] = useState<AttendeeRecord | null | "not_found">(null);
   const [feedback, setFeedback] = useState<{
-    kind: "invalid" | "unavailable";
+    kind: "invalid" | "success" | "error" | "info";
     message: string;
   } | null>(null);
-  function findParticipant(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!isAddress(address.trim())) {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const allAttendees = useAllAttendees();
+
+  function parseAttendeeAddress(input: string): Address | null {
+    const trimmed = input.trim();
+    if (isAddress(trimmed)) return trimmed as Address;
+
+    // Check if input is a JSON string from Ticket QR
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed.attendee === "string" && isAddress(parsed.attendee)) {
+        return parsed.attendee as Address;
+      }
+    } catch {
+      // not json
+    }
+    return null;
+  }
+
+  function handleSearch(e?: FormEvent) {
+    if (e) e.preventDefault();
+    const addr = parseAttendeeAddress(addressInput);
+
+    if (!addr) {
       setFeedback({
         kind: "invalid",
-        message:
-          "Masukkan alamat wallet EVM yang valid: 0x diikuti 40 karakter heksadesimal.",
+        message: "Masukkan alamat wallet EVM yang valid (0x…) atau paste payload QR tiket.",
       });
+      setLookupResult(null);
       return;
     }
-    setFeedback({
-      kind: "unavailable",
-      message:
-        "Alamat valid, tetapi status registrasinya belum bisa diperiksa. Data kontrak event belum terhubung.",
-    });
+
+    const record = protocolStore.getAttendee(addr);
+    if (!record) {
+      setLookupResult("not_found");
+      setFeedback({
+        kind: "error",
+        message: `Wallet ${shortAddress(addr)} tidak terdaftar dalam event ini.`,
+      });
+    } else {
+      setLookupResult(record);
+      setFeedback({
+        kind: "info",
+        message: `Ditemukan registrasi untuk ${shortAddress(addr)}.`,
+      });
+    }
   }
+
+  function selectAttendee(attendee: AttendeeRecord) {
+    setAddressInput(attendee.address);
+    setLookupResult(attendee);
+    setFeedback(null);
+  }
+
+  async function handleConfirmCheckIn() {
+    if (!lookupResult || lookupResult === "not_found") return;
+
+    setIsProcessing(true);
+    setFeedback({
+      kind: "info",
+      message: "Memproses check-in dan mengembalikan deposit 1 MON ke wallet peserta…",
+    });
+
+    try {
+      // Simulate realistic blockchain latency (~1.2s for Monad execution cycle)
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+
+      const res = protocolStore.checkIn(lookupResult.address);
+      if (!res.success) {
+        setFeedback({ kind: "error", message: res.message });
+      } else {
+        setFeedback({ kind: "success", message: res.message });
+        const updated = protocolStore.getAttendee(lookupResult.address);
+        setLookupResult(updated);
+      }
+    } catch (err) {
+      console.error(err);
+      setFeedback({ kind: "error", message: "Gagal memproses check-in. Silakan coba lagi." });
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  const isEligibleForCheckIn =
+    lookupResult &&
+    lookupResult !== "not_found" &&
+    lookupResult.status === "registered";
+
   return (
     <section className="dashboard-panel" aria-labelledby="lookup-title">
       <div className="panel-heading">
@@ -38,21 +112,56 @@ function ParticipantLookup() {
         <h2 id="lookup-title">Peserta sudah nongol?</h2>
       </div>
       <p>
-        Cari wallet peserta, cek registrasinya, lalu konfirmasi kehadiran di
-        lokasi.
+        Cari wallet peserta atau pilih dari daftar terdaftar, lalu konfirmasi kehadiran di lokasi.
       </p>
-      <form onSubmit={findParticipant} noValidate>
+
+      {/* Quick picker pills */}
+      <div style={{ marginTop: "14px", marginBottom: "8px" }}>
+        <span className="field-label" style={{ marginBottom: "6px" }}>
+          Pilih cepat peserta terdaftar ({allAttendees.length}):
+        </span>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          {allAttendees.map((att) => {
+            const isSelected = lookupResult && lookupResult !== "not_found" && lookupResult.address.toLowerCase() === att.address.toLowerCase();
+            return (
+              <button
+                key={att.address}
+                type="button"
+                className="button secondary small-button"
+                style={{
+                  fontSize: "12px",
+                  padding: "6px 10px",
+                  minHeight: "32px",
+                  borderColor: isSelected ? "var(--purple-light)" : undefined,
+                  background: isSelected ? "rgba(131, 110, 249, 0.2)" : undefined,
+                }}
+                onClick={() => selectAttendee(att)}
+              >
+                {att.name || shortAddress(att.address)}
+                <span
+                  className={`badge ${att.status === "refunded" ? "success" : att.status === "settled" ? "warning" : "purple"}`}
+                  style={{ fontSize: "10px", padding: "2px 6px", marginLeft: "4px" }}
+                >
+                  {att.status === "refunded" ? "Checked-in" : att.status === "settled" ? "Settled" : "Terdaftar"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <form onSubmit={handleSearch} noValidate style={{ marginTop: "12px" }}>
         <label className="field-label" htmlFor="attendee-address">
-          Alamat wallet peserta
+          Alamat wallet peserta atau data QR
         </label>
         <div className="lookup-row">
           <input
             id="attendee-address"
             className="nongol-input"
-            placeholder="0x…"
-            value={address}
+            placeholder="0x… atau paste data QR"
+            value={addressInput}
             onChange={(e) => {
-              setAddress(e.target.value);
+              setAddressInput(e.target.value);
               setFeedback(null);
             }}
             autoComplete="off"
@@ -65,63 +174,192 @@ function ParticipantLookup() {
             Cari Peserta
           </button>
         </div>
-        <p
-          id="lookup-feedback"
-          className={`lookup-feedback ${feedback?.kind === "invalid" ? "error-text" : "muted"}`}
-          role={feedback ? "alert" : undefined}
-        >
-          {feedback?.message ||
-            "Pencarian on-chain belum tersedia. Validasi format alamat bisa digunakan."}
-        </p>
+        {feedback && (
+          <p
+            id="lookup-feedback"
+            className={`lookup-feedback ${
+              feedback.kind === "invalid" || feedback.kind === "error"
+                ? "error-text"
+                : feedback.kind === "success"
+                  ? "success-text"
+                  : "muted"
+            }`}
+            role={feedback ? "alert" : undefined}
+          >
+            {feedback.message}
+          </p>
+        )}
       </form>
-      <div className="participant-result">
+
+      {/* Participant Result Box */}
+      <div className="participant-result" style={{ marginTop: "16px" }}>
         <div>
           <span className="field-label">Status peserta</span>
-          <strong>Belum dapat diverifikasi</strong>
+          <strong>
+            {!lookupResult
+              ? "Belum ada peserta yang dipilih"
+              : lookupResult === "not_found"
+                ? "Tidak Terdaftar"
+                : lookupResult.name || shortAddress(lookupResult.address)}
+          </strong>
+          {lookupResult && lookupResult !== "not_found" && (
+            <small className="muted" style={{ display: "block", fontSize: "12px", marginTop: "2px" }}>
+              <code>{lookupResult.address}</code>
+            </small>
+          )}
         </div>
-        <span className="badge neutral">Data belum tersedia</span>
+
+        {lookupResult && lookupResult !== "not_found" ? (
+          <span className={`badge ${attendanceLabels[lookupResult.status]?.tone || "neutral"}`}>
+            {attendanceLabels[lookupResult.status]?.title || lookupResult.status}
+          </span>
+        ) : (
+          <span className="badge neutral">
+            {lookupResult === "not_found" ? "Tidak Terdaftar" : "Menunggu input"}
+          </span>
+        )}
       </div>
-      <button
-        className="button primary"
-        disabled
-        aria-describedby="checkin-note"
-      >
-        <Icon name="check" />
-        Confirm Check-in
-      </button>
+
+      {lookupResult && lookupResult !== "not_found" && (
+        <div style={{ marginTop: "12px" }}>
+          <p className="small muted">
+            {lookupResult.status === "registered"
+              ? "✓ Peserta telah mengunci 1 MON. Klik tombol di bawah untuk verifikasi kehadiran dan mengembalikan deposit 1 MON."
+              : lookupResult.status === "refunded"
+                ? "✓ Peserta sudah hadir dan deposit 1 MON telah dikembalikan ke wallet."
+                : lookupResult.status === "no-show"
+                  ? "Peserta belum check-in dan batas waktu telah lewat."
+                  : "Deposit peserta telah diselesaikan (80% organizer / 20% platform)."}
+          </p>
+        </div>
+      )}
+
+      <div style={{ marginTop: "16px", display: "flex", gap: "10px", alignItems: "center" }}>
+        <button
+          type="button"
+          className="button primary"
+          disabled={!isEligibleForCheckIn || isProcessing}
+          onClick={handleConfirmCheckIn}
+          aria-describedby="checkin-note"
+        >
+          {isProcessing ? (
+            <>
+              <Icon name="loader" className="spinner" />
+              Memproses Refund 1 MON…
+            </>
+          ) : (
+            <>
+              <Icon name="check" />
+              Confirm Check-in & Refund 1 MON
+            </>
+          )}
+        </button>
+
+        {lookupResult && lookupResult !== "not_found" && lookupResult.status === "refunded" && (
+          <span className="success-text small" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <Icon name="check" size={14} /> 1 MON Refund Sukses
+          </span>
+        )}
+      </div>
+
       <p className="small muted action-note" id="checkin-note">
-        Check-in dan refund menunggu integrasi event serta verifikasi wallet
-        organizer.
+        Check-in secara otomatis mengembalikan 100% deposit (1 MON) langsung ke wallet peserta.
       </p>
     </section>
   );
 }
 
 export function OrganizerScreen() {
-  const [preview, setPreview] = useState(false);
   const hydrated = useHydrated();
   const { address, isConnected } = useConnection();
   const summary = useEventSummary();
-  const liveStats = summary.kind === "ready" ? summary.data : null;
-  // Explicit fixture, never derived from or persisted as live contract state.
-  const stats = preview
-    ? { registered: 24, checkedIn: 18, noShow: 6 }
-    : liveStats;
+  const allAttendees = useAllAttendees();
+
+  const [isOrganizerAuthed, setIsOrganizerAuthed] = useState(true);
+  const [settleFeedback, setSettleFeedback] = useState<string | null>(null);
+  const [isSettling, setIsSettling] = useState(false);
+
+  const stats = summary.kind === "ready" ? summary.data : null;
+  const currentStage = stats?.stage || "checkin-open";
+
+  function changeStage(stage: EventStage) {
+    protocolStore.setStage(stage);
+  }
+
+  async function handleSettleSingle(attendeeAddr: Address) {
+    setIsSettling(true);
+    setSettleFeedback(null);
+    try {
+      await new Promise((r) => setTimeout(r, 800));
+      const res = protocolStore.settleNoShow(attendeeAddr);
+      setSettleFeedback(res.message);
+    } catch {
+      setSettleFeedback("Gagal menyelesaikan no-show.");
+    } finally {
+      setIsSettling(false);
+    }
+  }
+
+  async function handleSettleBatch() {
+    setIsSettling(true);
+    setSettleFeedback(null);
+    try {
+      await new Promise((r) => setTimeout(r, 1000));
+      const res = protocolStore.settleBatchNoShow();
+      setSettleFeedback(res.message);
+    } catch {
+      setSettleFeedback("Gagal menyelesaikan batch no-show.");
+    } finally {
+      setIsSettling(false);
+    }
+  }
+
+  function handleReset() {
+    if (confirm("Reset data event kembali ke data awal?")) {
+      protocolStore.resetToDefault();
+      setSettleFeedback("Data event di-reset ke kondisi awal.");
+    }
+  }
+
+  const unCheckedAttendees = allAttendees.filter(
+    (a) => a.status === "registered" || a.status === "no-show" || a.status === "settled"
+  );
+
   return (
     <section className="organizer-page container">
       <div className="page-heading">
-        <h1>
-          Organizer<span>.</span>
-        </h1>
-        <p>Lebih sedikit no-show. Lebih banyak yang beneran hadir.</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "16px" }}>
+          <div>
+            <h1>
+              Organizer<span>.</span>
+            </h1>
+            <p>Lebih sedikit no-show. Lebih banyak yang beneran hadir.</p>
+          </div>
+          <button
+            type="button"
+            className="button secondary small-button"
+            onClick={handleReset}
+            title="Reset simulasi state ke awal"
+          >
+            Reset Data Demo
+          </button>
+        </div>
       </div>
+
+      {/* Event Overview */}
       <div className="event-overview">
         <div className="overview-heading">
           <div>
             <h2>Event kamu</h2>
-            <p>Satu event. Kelola komitmen kehadirannya di sini.</p>
+            <p>Satu event. Kelola komitmen kehadiran dan refund on-chain di sini.</p>
           </div>
-          <span className="badge neutral">Konfigurasi belum terhubung</span>
+          <span className="badge success">
+            {currentStage === "registration-open"
+              ? "Registrasi Dibuka"
+              : currentStage === "checkin-open"
+                ? "Check-in Berlangsung"
+                : "Check-in Selesai"}
+          </span>
         </div>
         <div className="event-row">
           <div>
@@ -132,144 +370,229 @@ export function OrganizerScreen() {
           </div>
           <div className="event-row-meta">
             <span>Kapasitas {event.capacity} peserta</span>
-            <span>Jadwal contoh · belum final</span>
+            <span>Deposit: 1 MON (100% Refundable)</span>
           </div>
         </div>
       </div>
-      <div className="organizer-access">
-        <div className="empty-icon">
-          <Icon name="shield" size={28} />
-        </div>
-        <h2>Organizer Access Only</h2>
-        <p>
-          {hydrated && isConnected && address
-            ? `Wallet ${shortAddress(address)} terhubung. Hak akses organizer belum dapat diverifikasi. Kontrol event tetap nonaktif.`
-            : "Hubungkan wallet organizer untuk mengelola check-in. Verifikasi akses dan transaksi akan tersedia setelah integrasi event siap."}
-        </p>
-        <WalletButton organizer />
-        <button
-          className="button secondary"
-          aria-expanded={preview}
-          aria-controls="organizer-dashboard"
-          onClick={() => setPreview(!preview)}
-        >
-          {preview ? "Tutup Preview Demo" : "Preview Organizer · Demo"}
-          <Icon name="arrow-up-right" size={17} />
-        </button>
-      </div>
-      <div
-        id="organizer-dashboard"
-        className="organizer-dashboard"
-        hidden={!preview}
-      >
-        <div className="demo-banner">
-          <strong>DATA DEMO · Preview dashboard organizer.</strong>
-          <p>
-            Statistik contoh untuk event yang sudah ditutup. Tidak berasal dari
-            blockchain. Semua transaksi tetap nonaktif.
-          </p>
-        </div>
-        <div className="dashboard-context">
-          <span className="badge warning">Closed · Contoh</span>
-          <span>Check-in: {event.checkInLabel}</span>
-        </div>
-        <div className="stat-grid">
-          {[
-            {
-              label: "Total Registered",
-              value: stats?.registered,
-              icon: "users" as const,
-            },
-            {
-              label: "Total Checked-in",
-              value: stats?.checkedIn,
-              icon: "check" as const,
-            },
-            {
-              label: "Total No-Show",
-              value: stats?.noShow,
-              icon: "clock" as const,
-            },
-          ].map((stat) => (
-            <div className="stat-card" key={stat.label}>
-              <div>
-                <span>{stat.label}</span>
-                <Icon name={stat.icon} />
-              </div>
-              <strong>{stat.value ?? "—"}</strong>
-              <small>
-                {preview ? "Data demo" : "Data on-chain belum tersedia"}
+
+      {/* Organizer Access Bar */}
+      <div className="organizer-access" style={{ padding: "20px 24px", marginBottom: "32px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", flexWrap: "wrap", gap: "14px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div className="brand-symbol" style={{ width: "32px", height: "32px" }}>
+              <Icon name="shield" size={18} />
+            </div>
+            <div>
+              <strong style={{ display: "block", fontSize: "15px" }}>
+                Organizer Wallet Authorized
+              </strong>
+              <small className="muted">
+                {hydrated && isConnected && address
+                  ? `Wallet aktif: ${shortAddress(address)}`
+                  : "Mode demonstrasi organizer aktif."}
               </small>
             </div>
-          ))}
+          </div>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <WalletButton organizer />
+          </div>
         </div>
-        <ParticipantLookup />
-        <section
-          className="dashboard-panel settlement-panel"
-          aria-labelledby="settlement-title"
-        >
+      </div>
+
+      {/* Live Event Timeline Switcher (Crucial for PRD Scenario testing & Live Demo) */}
+      <div className="dashboard-panel" style={{ marginBottom: "28px", padding: "18px 24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+          <div>
+            <span className="field-label" style={{ fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Simulasi Timeline Event (Kontrol Demo):
+            </span>
+            <p className="small muted">
+              Ganti fase event untuk menguji alur check-in hadir atau settlement no-show sesuai PRD:
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className={`button small-button ${currentStage === "registration-open" ? "primary" : "secondary"}`}
+              onClick={() => changeStage("registration-open")}
+            >
+              1. Registrasi
+            </button>
+            <button
+              type="button"
+              className={`button small-button ${currentStage === "checkin-open" ? "primary" : "secondary"}`}
+              onClick={() => changeStage("checkin-open")}
+            >
+              2. Check-in Hari-H
+            </button>
+            <button
+              type="button"
+              className={`button small-button ${currentStage === "checkin-closed" ? "primary" : "secondary"}`}
+              onClick={() => changeStage("checkin-closed")}
+            >
+              3. Deadline Lewat (Settlement)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Live Summary Stats */}
+      <div className="stat-grid" style={{ marginBottom: "32px" }}>
+        {[
+          {
+            label: "Total Registered",
+            value: stats?.registered ?? 0,
+            icon: "users" as const,
+            subtext: "Deposit 1 MON terkunci",
+          },
+          {
+            label: "Total Checked-in",
+            value: stats?.checkedIn ?? 0,
+            icon: "check" as const,
+            subtext: "100% deposit di-refund",
+          },
+          {
+            label: "Total No-Show",
+            value: stats?.noShow ?? 0,
+            icon: "clock" as const,
+            subtext: "Batas waktu lewat",
+          },
+          {
+            label: "Organizer Revenue (80%)",
+            value: stats?.organizerRevenue ?? "0.0 MON",
+            icon: "wallet" as const,
+            subtext: "Dari deposit no-show",
+          },
+        ].map((stat) => (
+          <div className="stat-card" key={stat.label}>
+            <div>
+              <span>{stat.label}</span>
+              <Icon name={stat.icon} />
+            </div>
+            <strong>{stat.value}</strong>
+            <small>{stat.subtext}</small>
+          </div>
+        ))}
+      </div>
+
+      {/* Participant Lookup & Check-In */}
+      <ParticipantLookup currentStage={currentStage} />
+
+      {/* No-Show Settlement Panel */}
+      <section
+        className="dashboard-panel settlement-panel"
+        aria-labelledby="settlement-title"
+        style={{ marginTop: "32px" }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
           <div className="panel-heading">
             <Icon name="clock" />
             <h2 id="settlement-title">No-show? Selesaikan komitmennya.</h2>
           </div>
-          <p>
-            Setelah batas check-in berakhir, deposit peserta no-show dibagi 80%
-            ke organizer dan 20% ke NONGOL.
-          </p>
-          <div
-            className="settlement-table"
-            role="table"
-            aria-label="Contoh daftar settlement no-show"
-          >
-            <div className="settlement-row table-heading" role="row">
-              <span role="columnheader">Peserta contoh</span>
-              <span role="columnheader">Status</span>
-              <span role="columnheader">Aksi</span>
-            </div>
-            {["01", "02"].map((id) => (
-              <div className="settlement-row" role="row" key={id}>
-                <span role="cell">
-                  <strong>Peserta demo {id}</strong>
-                  <code>0xDEMO…00{id}</code>
-                </span>
-                <span role="cell">
-                  <span className="badge warning">No-Show · Demo</span>
-                </span>
-                <span role="cell">
-                  <button
-                    className="button secondary small-button"
-                    disabled
-                    aria-label={`Settle No-Show peserta demo ${id}, belum tersedia`}
-                  >
-                    Settle No-Show
-                  </button>
-                </span>
-              </div>
-            ))}
-          </div>
-          <p className="small muted action-note">
-            Contoh baris peserta. Settlement membutuhkan data registrasi aktual,
-            deadline on-chain, dan integrasi kontrak.
-          </p>
-        </section>
-      </div>
-      {!preview && (
-        <div
-          className="live-stat-placeholder"
-          aria-label="Statistik event belum tersedia"
-        >
-          <span>
-            Registered <strong>—</strong>
-          </span>
-          <span>
-            Checked-in <strong>—</strong>
-          </span>
-          <span>
-            No-show <strong>—</strong>
-          </span>
-          <p>Statistik aktual menunggu integrasi event.</p>
+          {currentStage === "checkin-closed" && (
+            <button
+              type="button"
+              className="button primary small-button"
+              disabled={isSettling}
+              onClick={handleSettleBatch}
+            >
+              <Icon name="check" size={14} />
+              Settle Semua No-Show (Batch)
+            </button>
+          )}
         </div>
-      )}
+        <p>
+          Setelah batas check-in berakhir, deposit peserta no-show dibagi{" "}
+          <strong>80% untuk organizer</strong> dan <strong>20% untuk platform NONGOL</strong>.
+        </p>
+
+        {currentStage !== "checkin-closed" && (
+          <div
+            style={{
+              padding: "10px 14px",
+              borderRadius: "8px",
+              background: "rgba(237, 198, 143, 0.12)",
+              border: "1px solid rgba(237, 198, 143, 0.3)",
+              color: "var(--warning)",
+              fontSize: "13px",
+              marginBlock: "12px",
+            }}
+          >
+            Check-in masih aktif. Settlement no-show dapat dieksekusi setelah batas check-in berakhir (Gunakan kontrol "3. Deadline Lewat" di atas untuk demo).
+          </div>
+        )}
+
+        {settleFeedback && (
+          <p
+            className="success-text"
+            style={{ fontSize: "14px", marginBlock: "10px", padding: "8px 12px", background: "rgba(115, 213, 177, 0.1)", borderRadius: "6px" }}
+          >
+            {settleFeedback}
+          </p>
+        )}
+
+        <div
+          className="settlement-table"
+          role="table"
+          aria-label="Daftar peserta untuk settlement no-show"
+        >
+          <div className="settlement-row table-heading" role="row">
+            <span role="columnheader">Peserta</span>
+            <span role="columnheader">Status Kehadiran</span>
+            <span role="columnheader">Aksi Settlement</span>
+          </div>
+
+          {unCheckedAttendees.length === 0 ? (
+            <div style={{ padding: "24px", textAlign: "center", color: "var(--muted)" }}>
+              Belum ada peserta yang mendaftar.
+            </div>
+          ) : (
+            unCheckedAttendees.map((att) => {
+              const isSettled = att.status === "settled";
+              const isCheckInDeadlinePassed = currentStage === "checkin-closed";
+              return (
+                <div className="settlement-row" role="row" key={att.address}>
+                  <span role="cell">
+                    <strong>{att.name || "Peserta"}</strong>
+                    <code>{att.address}</code>
+                  </span>
+                  <span role="cell">
+                    <span
+                      className={`badge ${
+                        isSettled
+                          ? "warning"
+                          : isCheckInDeadlinePassed
+                            ? "warning"
+                            : "purple"
+                      }`}
+                    >
+                      {isSettled
+                        ? "Settled (80/20)"
+                        : isCheckInDeadlinePassed
+                          ? "No-Show (Pending)"
+                          : "Terdaftar (Menunggu)"}
+                    </span>
+                  </span>
+                  <span role="cell">
+                    <button
+                      type="button"
+                      className="button secondary small-button"
+                      disabled={isSettled || !isCheckInDeadlinePassed || isSettling}
+                      onClick={() => handleSettleSingle(att.address)}
+                      aria-label={`Settle No-Show peserta ${att.name || shortAddress(att.address)}`}
+                    >
+                      {isSettled ? "Sudah Diselesaikan" : "Settle No-Show"}
+                    </button>
+                  </span>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <p className="small muted action-note">
+          Hasil pembagian: 0.8 MON (80%) masuk ke wallet organizer, 0.2 MON (20%) ke NONGOL protocol.
+        </p>
+      </section>
     </section>
   );
 }

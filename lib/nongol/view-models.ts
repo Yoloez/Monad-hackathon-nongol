@@ -15,7 +15,7 @@ export type AttendanceStatus =
   | "no-show"
   | "settled";
 
-/** Only an adapter reading confirmed on-chain registration may create this. */
+/** Confirmed ticket model representing verified attendee status. */
 export type ConfirmedTicket = {
   source: "onchain";
   attendee: Address;
@@ -23,6 +23,9 @@ export type ConfirmedTicket = {
   registrationHash: Hash;
   chainId: 10143;
   status: AttendanceStatus;
+  registeredAt?: number;
+  checkedInAt?: number;
+  settledAt?: number;
 };
 
 export type DemoTicket = {

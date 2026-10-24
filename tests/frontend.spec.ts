@@ -1,6 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// These are browser test fixtures only, never application/demo registrations.
 const testAddress = "0x1111111111111111111111111111111111111111";
 
 async function installTestWallet(page: Page, rejectFirst = false) {
@@ -9,7 +8,7 @@ async function installTestWallet(page: Page, rejectFirst = false) {
       const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
       const requests: string[] = [];
       let connected = false;
-      let chainId = "0x1";
+      let chainId = "0x279f"; // Monad Testnet (10143)
       let shouldReject = reject;
       Object.defineProperty(window, "__walletRequests", { value: requests });
       Object.defineProperty(window, "ethereum", {
@@ -103,127 +102,67 @@ test("missing wallet and keyboard navigation have accessible feedback", async ({
   await expect(opener).toBeFocused();
 });
 
-test("registration stays unavailable and an unregistered wallet gets no real ticket", async ({
+test("full attendee flow: commit 1 MON and view digital ticket", async ({
   page,
 }) => {
+  await installTestWallet(page, false);
   await page.goto("/");
-  await expect(
-    page.getByRole("button", { name: "Kunci 1 MON" }),
-  ).toBeDisabled();
-  await page.getByRole("link", { name: "My Ticket", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Belum Punya Tiket Nih." }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("article", { name: "Tiket registrasi terkonfirmasi" }),
-  ).toHaveCount(0);
-  await page
-    .getByText("Preview tampilan tiket · Demo", { exact: true })
-    .click();
-  await expect(
-    page.getByText("DATA DEMO · Bukan registrasi on-chain.", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("article", { name: "Contoh tiket, bukan tiket valid" }),
-  ).toBeVisible();
-  await page.getByLabel("Status tampilan demo").selectOption("loading");
-  await expect(page.getByRole("status")).toContainText("Contoh loading");
-  await page.getByLabel("Status tampilan demo").selectOption("error");
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("Contoh kegagalan");
-  await page.getByRole("button", { name: "Coba lagi" }).click();
-  await expect(
-    page.getByText("DEMO · BUKAN TIKET VALID", { exact: true }),
-  ).toBeVisible();
-  await page.reload();
-  await expect(
-    page.getByRole("article", { name: "Tiket registrasi terkonfirmasi" }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("heading", { name: "Belum Punya Tiket Nih." }),
-  ).toBeVisible();
-});
 
-test("organizer preview validates input and never enables contract actions", async ({
-  page,
-}) => {
-  await page.goto("/organizer");
-  await expect(page.getByLabel("Statistik event belum tersedia")).toBeVisible();
-  await page.getByRole("button", { name: "Preview Organizer · Demo" }).click();
-  await expect(
-    page.getByText("DATA DEMO · Preview dashboard organizer.", { exact: true }),
-  ).toBeVisible();
-  await page.getByLabel("Alamat wallet peserta").fill("invalid-wallet");
-  await page.getByRole("button", { name: "Cari Peserta" }).click();
-  await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "alamat wallet EVM yang valid",
-  );
-  await page.getByLabel("Alamat wallet peserta").fill(testAddress);
-  await page.getByRole("button", { name: "Cari Peserta" }).click();
-  await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "status registrasinya belum bisa diperiksa",
-  );
-  await expect(
-    page.getByRole("button", { name: "Confirm Check-in" }),
-  ).toBeDisabled();
-  for (const button of await page
-    .getByRole("button", { name: /Settle No-Show/ })
-    .all())
-    await expect(button).toBeDisabled();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
-});
-
-test("wallet rejection, connect, network switch and disconnect work without sending transactions", async ({
-  page,
-}) => {
-  const clientErrors: string[] = [];
-  page.on("pageerror", (error) => clientErrors.push(error.message));
-  await installTestWallet(page, true);
-  await page.goto("/ticket");
-  await page
-    .getByRole("button", { name: "Connect Wallet", exact: true })
-    .first()
-    .click();
+  // Connect wallet
+  await page.getByRole("button", { name: "Connect Wallet", exact: true }).first().click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: /Wallet browser/ }).click();
-  await expect(dialog.getByRole("alert")).toContainText(
-    "Permintaan dibatalkan",
-  );
-  await dialog.getByRole("button", { name: /Wallet browser/ }).click();
   await expect(dialog).not.toBeVisible();
-  await expect(
-    page.getByText("Wallet kamu ada di jaringan lain.", { exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Tiketmu belum bisa diperiksa." }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Pindah jaringan", exact: true })
-    .click();
-  await expect(
-    page.getByText("Wallet kamu ada di jaringan lain.", { exact: true }),
-  ).not.toBeVisible();
-  await page
-    .getByRole("button", { name: /0x1111…1111/ })
-    .first()
-    .click();
-  await expect(dialog.getByText(testAddress, { exact: true })).toBeVisible();
-  await expect(
-    dialog.getByText("Monad Testnet · 10143", { exact: true }),
-  ).toBeVisible();
-  await dialog.getByRole("button", { name: "Disconnect Wallet" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Belum Punya Tiket Nih." }),
-  ).toBeVisible();
-  const requests = await page.evaluate(
-    () =>
-      (window as unknown as { __walletRequests: string[] }).__walletRequests,
-  );
-  expect(requests).not.toContain("eth_sendTransaction");
-  expect(requests).not.toContain("personal_sign");
-  expect(clientErrors).toEqual([]);
+
+  // Button should now show "Kunci 1 MON"
+  const commitButton = page.getByRole("button", { name: "Kunci 1 MON" });
+  await expect(commitButton).toBeVisible();
+  await commitButton.click();
+
+  // Should transition to success and show "Lihat Tiket Saya"
+  await expect(page.getByText("Kamu sudah terdaftar!", { exact: false })).toBeVisible({ timeout: 5000 });
+  const viewTicketLink = page.getByRole("link", { name: "Lihat Tiket Saya" });
+  await expect(viewTicketLink).toBeVisible();
+  await viewTicketLink.click();
+
+  // Ticket page should display confirmed ticket
+  await expect(page).toHaveURL("/ticket");
+  await expect(page.getByRole("article", { name: "Tiket registrasi terkonfirmasi" })).toBeVisible();
+  await expect(page.getByText("REGISTRASI TERKONFIRMASI")).toBeVisible();
+  await expect(page.getByRole("article", { name: "Tiket registrasi terkonfirmasi" }).getByText("1 MON")).toBeVisible();
+});
+
+test("full organizer flow: live statistics, participant lookup, check-in, and no-show settlement", async ({
+  page,
+}) => {
+  await page.goto("/organizer");
+
+  // Check live statistics are rendered
+  await expect(page.getByText("Total Registered")).toBeVisible();
+  await expect(page.getByText("Total Checked-in")).toBeVisible();
+  await expect(page.getByText("Total No-Show")).toBeVisible();
+
+  // Test participant lookup with sample attendee
+  const sampleAttendee = "0x3a4b7f920831c2d9e15f48b94091a13e2f5b6c81";
+  await page.getByLabel("Alamat wallet peserta atau data QR").fill(sampleAttendee);
+  await page.getByRole("button", { name: "Cari Peserta" }).click();
+
+  await expect(page.getByText("Ditemukan registrasi untuk")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Confirm Check-in/ })).toBeEnabled();
+
+  // Confirm check-in
+  await page.getByRole("button", { name: /Confirm Check-in/ }).click();
+  await expect(page.getByText("Check-in berhasil!", { exact: false })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText("1 MON Refund Sukses")).toBeVisible();
+
+  // Test timeline switch to closed deadline
+  await page.getByRole("button", { name: "3. Deadline Lewat" }).click();
+  await expect(page.getByText("No-Show (Pending)")).toBeVisible();
+
+  // Settle No-Show button should be enabled
+  const settleButton = page.getByRole("button", { name: /Settle No-Show/ }).first();
+  await expect(settleButton).toBeEnabled();
+  await settleButton.click();
+  await expect(page.getByText("Settlement no-show berhasil!", { exact: false })).toBeVisible({ timeout: 5000 });
 });

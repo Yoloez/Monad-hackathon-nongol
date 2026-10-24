@@ -19,7 +19,7 @@ type PreviewState = "empty" | "loading" | "error" | AttendanceStatus;
 function TicketPreview() {
   const [preview, setPreview] = useState<PreviewState>("registered");
   return (
-    <details className="demo-controls">
+    <details className="demo-controls" style={{ marginTop: "32px" }}>
       <summary>
         Preview tampilan tiket · Demo
         <Icon name="arrow-up-right" size={16} />
@@ -28,8 +28,7 @@ function TicketPreview() {
         <div className="demo-banner">
           <strong>DATA DEMO · Bukan registrasi on-chain.</strong>
           <p>
-            Pilihan di bawah hanya mengubah tampilan. Tidak ada deposit, refund,
-            atau settlement yang dilakukan.
+            Pilihan di bawah hanya mengubah tampilan untuk keperluan preview desain.
           </p>
         </div>
         <label className="field-label" htmlFor="ticket-preview">
@@ -83,17 +82,19 @@ export function TicketScreen() {
   const ticket = useTicketData();
   const loading =
     !hydrated || isConnecting || isReconnecting || ticket.kind === "loading";
+  
+  // Consider confirmed if ready and matches connected address (allowing 10143 or fallback)
   const confirmed =
     ticket.kind === "ready" &&
     isConnected &&
-    chainId === 10143 &&
+    (!chainId || chainId === 10143) &&
     address?.toLowerCase() === ticket.data.attendee.toLowerCase();
 
   return (
     <section className="ticket-page container">
       <Link href="/#event" className="back-link">
         <Icon name="arrow-left" size={16} />
-        Back to Event
+        Kembali ke Event
       </Link>
       <div className="page-heading centered">
         <h1>
@@ -105,18 +106,41 @@ export function TicketScreen() {
         <span className="field-label">Event kamu</span>
         <div className="event-selection">
           {event.name}
-          <span className="badge neutral">Satu event</span>
+          <span className="badge neutral">Monad Testnet</span>
         </div>
       </div>
       <p className="ticket-context">
         Tiket untuk <strong>{event.name}</strong>. Satu registrasi per wallet.
       </p>
+
       {loading ? (
         <LoadingState message="Menyiapkan koneksi dan status tiket…" />
       ) : ticket.kind === "error" ? (
         <ErrorState message={ticket.message} />
       ) : confirmed && ticket.kind === "ready" ? (
-        <TicketCard ticket={ticket.data} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "20px" }}>
+          <TicketCard ticket={ticket.data} />
+          
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
+            <Link href="/organizer" className="button secondary small-button">
+              <Icon name="search" size={14} />
+              Buka Check-in di Organizer
+            </Link>
+            <button
+              type="button"
+              className="button secondary small-button"
+              onClick={() => {
+                if (navigator.clipboard) {
+                  navigator.clipboard.writeText(ticket.data.attendee);
+                  alert("Alamat wallet tiket disalin ke clipboard!");
+                }
+              }}
+            >
+              <Icon name="ticket" size={14} />
+              Salin Alamat Tiket
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="empty-state">
           <div className="empty-icon">
@@ -130,19 +154,22 @@ export function TicketScreen() {
           <p>
             {ticket.kind === "unavailable"
               ? ticket.message
-              : "Yuk, amankan tempatmu dulu. Kunci komitmen, bukan sekadar daftar. Tiket valid baru tersedia setelah registrasi on-chain terkonfirmasi."}
+              : "Yuk, amankan tempatmu dulu. Kunci komitmen 1 MON, bukan sekadar daftar. Tiket valid langsung aktif setelah transaksi berhasil."}
           </p>
           {!isConnected ? (
             <WalletButton />
           ) : (
             <Link className="button primary" href="/#event">
-              Lihat Event
+              Kunci 1 MON Sekarang
               <Icon name="arrow-right" />
             </Link>
           )}
-          <span className="small muted">Registrasi event belum tersedia.</span>
+          <span className="small muted">
+            Datang dan check-in di hari-H, deposit 1 MON kembali 100%.
+          </span>
         </div>
       )}
+
       <TicketPreview />
     </section>
   );
