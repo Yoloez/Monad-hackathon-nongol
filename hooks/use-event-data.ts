@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { useConnection } from "wagmi";
 import type { Address, Hash } from "viem";
 import {
@@ -8,6 +8,7 @@ import {
   type AttendeeRecord,
   type EventStage,
 } from "@/lib/nongol/protocol-store";
+import type { EventItem } from "@/lib/nongol/event";
 import type {
   ConfirmedTicket,
   EventSummary,
@@ -15,10 +16,44 @@ import type {
 } from "@/lib/nongol/view-models";
 
 /**
+ * Hook to get the currently selected / active event
+ */
+export function useCurrentEvent(): EventItem {
+  const [event, setEvent] = useState<EventItem>(() => protocolStore.getActiveEvent());
+
+  useEffect(() => {
+    function update() {
+      setEvent(protocolStore.getActiveEvent());
+    }
+    update();
+    return protocolStore.subscribe(update);
+  }, []);
+
+  return event;
+}
+
+/**
+ * Hook to get all available events
+ */
+export function useAllEvents(): EventItem[] {
+  const [events, setEvents] = useState<EventItem[]>(() => protocolStore.getAllEvents());
+
+  useEffect(() => {
+    function update() {
+      setEvents(protocolStore.getAllEvents());
+    }
+    update();
+    return protocolStore.subscribe(update);
+  }, []);
+
+  return events;
+}
+
+/**
  * Reactive hook to read attendee ticket data.
  * Checks connected wallet against protocol store / contract.
  */
-export function useTicketData(): ReadState<ConfirmedTicket> {
+export function useTicketData(eventId?: string): ReadState<ConfirmedTicket> {
   const { address, isConnected } = useConnection();
   const [ticketState, setTicketState] = useState<ReadState<ConfirmedTicket>>({ kind: "loading" });
 
@@ -29,17 +64,18 @@ export function useTicketData(): ReadState<ConfirmedTicket> {
         return;
       }
 
-      const attendee = protocolStore.getAttendee(address);
+      const attendee = protocolStore.getAttendee(address, eventId);
       if (!attendee) {
         setTicketState({ kind: "empty" });
         return;
       }
 
       const state = protocolStore.getState();
+      const currentEv = state.events[eventId || state.activeEventId];
       const confirmed: ConfirmedTicket = {
         source: "onchain",
         attendee: attendee.address,
-        contractAddress: (state.contractAddress || "0x9876543210987654321098765432109876543210") as Address,
+        contractAddress: (currentEv?.contractAddress || "0x9876543210987654321098765432109876543210") as Address,
         registrationHash: (attendee.txHash || "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef") as Hash,
         chainId: 10143,
         status: attendee.status,
@@ -57,7 +93,7 @@ export function useTicketData(): ReadState<ConfirmedTicket> {
     update();
     const unsubscribe = protocolStore.subscribe(update);
     return () => unsubscribe();
-  }, [address, isConnected]);
+  }, [address, isConnected, eventId]);
 
   return ticketState;
 }
@@ -65,24 +101,25 @@ export function useTicketData(): ReadState<ConfirmedTicket> {
 /**
  * Reactive hook to read real-time event statistics
  */
-export function useEventSummary(): ReadState<
+export function useEventSummary(eventId?: string): ReadState<
   EventSummary & {
     totalSettled: number;
     stage: EventStage;
     contractBalance: string;
     organizerRevenue: string;
     platformRevenue: string;
+    eventConfig: EventItem;
   }
 > {
-  const [summary, setSummary] = useState(() => protocolStore.getSummary());
+  const [summary, setSummary] = useState(() => protocolStore.getSummary(eventId));
 
   useEffect(() => {
     function update() {
-      setSummary(protocolStore.getSummary());
+      setSummary(protocolStore.getSummary(eventId));
     }
     update();
     return protocolStore.subscribe(update);
-  }, []);
+  }, [eventId]);
 
   return {
     kind: "ready",
@@ -91,18 +128,18 @@ export function useEventSummary(): ReadState<
 }
 
 /**
- * Hook to retrieve all registered attendees
+ * Hook to retrieve all registered attendees for an event
  */
-export function useAllAttendees(): AttendeeRecord[] {
-  const [attendees, setAttendees] = useState<AttendeeRecord[]>(() => protocolStore.getAllAttendees());
+export function useAllAttendees(eventId?: string): AttendeeRecord[] {
+  const [attendees, setAttendees] = useState<AttendeeRecord[]>(() => protocolStore.getAllAttendees(eventId));
 
   useEffect(() => {
     function update() {
-      setAttendees(protocolStore.getAllAttendees());
+      setAttendees(protocolStore.getAllAttendees(eventId));
     }
     update();
     return protocolStore.subscribe(update);
-  }, []);
+  }, [eventId]);
 
   return attendees;
 }

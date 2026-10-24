@@ -3,14 +3,14 @@
 import { useState, type FormEvent } from "react";
 import { isAddress, type Address } from "viem";
 import { useConnection } from "wagmi";
-import { featuredEvent as event } from "@/lib/nongol/event";
-import { useEventSummary, useAllAttendees } from "@/hooks/use-event-data";
+import { useEventSummary, useAllAttendees, useAllEvents, useCurrentEvent } from "@/hooks/use-event-data";
 import { protocolStore, type EventStage, type AttendeeRecord } from "@/lib/nongol/protocol-store";
 import { Icon } from "@/components/ui/icon";
 import { WalletButton, useHydrated } from "@/components/wallet/wallet-provider";
 import { shortAddress, attendanceLabels } from "@/lib/nongol/view-models";
+import { CreateEventDialog } from "./create-event-dialog";
 
-function ParticipantLookup({ currentStage }: { currentStage: EventStage }) {
+function ParticipantLookup({ currentStage, eventId, depositLabel }: { currentStage: EventStage; eventId: string; depositLabel: string }) {
   const [addressInput, setAddressInput] = useState("");
   const [lookupResult, setLookupResult] = useState<AttendeeRecord | null | "not_found">(null);
   const [feedback, setFeedback] = useState<{
@@ -18,7 +18,7 @@ function ParticipantLookup({ currentStage }: { currentStage: EventStage }) {
     message: string;
   } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const allAttendees = useAllAttendees();
+  const allAttendees = useAllAttendees(eventId);
 
   function parseAttendeeAddress(input: string): Address | null {
     const trimmed = input.trim();
@@ -49,7 +49,7 @@ function ParticipantLookup({ currentStage }: { currentStage: EventStage }) {
       return;
     }
 
-    const record = protocolStore.getAttendee(addr);
+    const record = protocolStore.getAttendee(addr, eventId);
     if (!record) {
       setLookupResult("not_found");
       setFeedback({
@@ -77,19 +77,19 @@ function ParticipantLookup({ currentStage }: { currentStage: EventStage }) {
     setIsProcessing(true);
     setFeedback({
       kind: "info",
-      message: "Memproses check-in dan mengembalikan deposit 1 MON ke wallet peserta…",
+      message: `Memproses check-in dan mengembalikan deposit ${depositLabel} ke wallet peserta…`,
     });
 
     try {
       // Simulate realistic blockchain latency (~1.2s for Monad execution cycle)
       await new Promise((resolve) => setTimeout(resolve, 1100));
 
-      const res = protocolStore.checkIn(lookupResult.address);
+      const res = protocolStore.checkIn(lookupResult.address, eventId);
       if (!res.success) {
         setFeedback({ kind: "error", message: res.message });
       } else {
         setFeedback({ kind: "success", message: res.message });
-        const updated = protocolStore.getAttendee(lookupResult.address);
+        const updated = protocolStore.getAttendee(lookupResult.address, eventId);
         setLookupResult(updated);
       }
     } catch (err) {
@@ -120,34 +120,40 @@ function ParticipantLookup({ currentStage }: { currentStage: EventStage }) {
         <span className="field-label" style={{ marginBottom: "6px" }}>
           Pilih cepat peserta terdaftar ({allAttendees.length}):
         </span>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          {allAttendees.map((att) => {
-            const isSelected = lookupResult && lookupResult !== "not_found" && lookupResult.address.toLowerCase() === att.address.toLowerCase();
-            return (
-              <button
-                key={att.address}
-                type="button"
-                className="button secondary small-button"
-                style={{
-                  fontSize: "12px",
-                  padding: "6px 10px",
-                  minHeight: "32px",
-                  borderColor: isSelected ? "var(--purple-light)" : undefined,
-                  background: isSelected ? "rgba(131, 110, 249, 0.2)" : undefined,
-                }}
-                onClick={() => selectAttendee(att)}
-              >
-                {att.name || shortAddress(att.address)}
-                <span
-                  className={`badge ${att.status === "refunded" ? "success" : att.status === "settled" ? "warning" : "purple"}`}
-                  style={{ fontSize: "10px", padding: "2px 6px", marginLeft: "4px" }}
+        {allAttendees.length === 0 ? (
+          <p className="small muted" style={{ margin: "6px 0" }}>
+            Belum ada peserta yang mendaftar untuk event ini. Kunjungi halaman beranda untuk mendaftar.
+          </p>
+        ) : (
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            {allAttendees.map((att) => {
+              const isSelected = lookupResult && lookupResult !== "not_found" && lookupResult.address.toLowerCase() === att.address.toLowerCase();
+              return (
+                <button
+                  key={att.address}
+                  type="button"
+                  className="button secondary small-button"
+                  style={{
+                    fontSize: "12px",
+                    padding: "6px 10px",
+                    minHeight: "32px",
+                    borderColor: isSelected ? "var(--purple-light)" : undefined,
+                    background: isSelected ? "rgba(131, 110, 249, 0.2)" : undefined,
+                  }}
+                  onClick={() => selectAttendee(att)}
                 >
-                  {att.status === "refunded" ? "Checked-in" : att.status === "settled" ? "Settled" : "Terdaftar"}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                  {att.name || shortAddress(att.address)}
+                  <span
+                    className={`badge ${att.status === "refunded" ? "success" : att.status === "settled" ? "warning" : "purple"}`}
+                    style={{ fontSize: "10px", padding: "2px 6px", marginLeft: "4px" }}
+                  >
+                    {att.status === "refunded" ? "Checked-in" : att.status === "settled" ? "Settled" : "Terdaftar"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSearch} noValidate style={{ marginTop: "12px" }}>
@@ -224,9 +230,9 @@ function ParticipantLookup({ currentStage }: { currentStage: EventStage }) {
         <div style={{ marginTop: "12px" }}>
           <p className="small muted">
             {lookupResult.status === "registered"
-              ? "✓ Peserta telah mengunci 1 MON. Klik tombol di bawah untuk verifikasi kehadiran dan mengembalikan deposit 1 MON."
+              ? `✓ Peserta telah mengunci ${depositLabel}. Klik tombol di bawah untuk verifikasi kehadiran dan mengembalikan deposit 100%.`
               : lookupResult.status === "refunded"
-                ? "✓ Peserta sudah hadir dan deposit 1 MON telah dikembalikan ke wallet."
+                ? `✓ Peserta sudah hadir dan deposit ${depositLabel} telah dikembalikan ke wallet.`
                 : lookupResult.status === "no-show"
                   ? "Peserta belum check-in dan batas waktu telah lewat."
                   : "Deposit peserta telah diselesaikan (80% organizer / 20% platform)."}
@@ -245,25 +251,25 @@ function ParticipantLookup({ currentStage }: { currentStage: EventStage }) {
           {isProcessing ? (
             <>
               <Icon name="loader" className="spinner" />
-              Memproses Refund 1 MON…
+              Memproses Refund {depositLabel}…
             </>
           ) : (
             <>
               <Icon name="check" />
-              Confirm Check-in & Refund 1 MON
+              Confirm Check-in & Refund {depositLabel}
             </>
           )}
         </button>
 
         {lookupResult && lookupResult !== "not_found" && lookupResult.status === "refunded" && (
           <span className="success-text small" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-            <Icon name="check" size={14} /> 1 MON Refund Sukses
+            <Icon name="check" size={14} /> {depositLabel} Refund Sukses
           </span>
         )}
       </div>
 
       <p className="small muted action-note" id="checkin-note">
-        Check-in secara otomatis mengembalikan 100% deposit (1 MON) langsung ke wallet peserta.
+        Check-in secara otomatis mengembalikan 100% deposit ({depositLabel}) langsung ke wallet peserta.
       </p>
     </section>
   );
@@ -272,11 +278,14 @@ function ParticipantLookup({ currentStage }: { currentStage: EventStage }) {
 export function OrganizerScreen() {
   const hydrated = useHydrated();
   const { address, isConnected } = useConnection();
+  
+  const currentEvent = useCurrentEvent();
+  const allEvents = useAllEvents();
   const summary = useEventSummary();
   const allAttendees = useAllAttendees();
 
-  const [isOrganizerAuthed, setIsOrganizerAuthed] = useState(true);
   const [settleFeedback, setSettleFeedback] = useState<string | null>(null);
+  const [createdBanner, setCreatedBanner] = useState<string | null>(null);
   const [isSettling, setIsSettling] = useState(false);
 
   const stats = summary.kind === "ready" ? summary.data : null;
@@ -318,6 +327,7 @@ export function OrganizerScreen() {
     if (confirm("Reset data event kembali ke data awal?")) {
       protocolStore.resetToDefault();
       setSettleFeedback("Data event di-reset ke kondisi awal.");
+      setCreatedBanner(null);
     }
   }
 
@@ -333,16 +343,93 @@ export function OrganizerScreen() {
             <h1>
               Organizer<span>.</span>
             </h1>
-            <p>Lebih sedikit no-show. Lebih banyak yang beneran hadir.</p>
+            <p>Kelola event, buat komitmen kehadiran, dan selesaikan refund/settlement.</p>
           </div>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <CreateEventDialog
+              onEventCreated={(newEventId) => {
+                const ev = protocolStore.getActiveEvent();
+                setCreatedBanner(`🎉 Event "${ev.name}" berhasil dibuat dan siap dikelola!`);
+              }}
+            />
+            <button
+              type="button"
+              className="button secondary small-button"
+              onClick={handleReset}
+              title="Reset simulasi state ke awal"
+            >
+              Reset Data Demo
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {createdBanner && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px 18px",
+            background: "rgba(115, 213, 177, 0.12)",
+            border: "1px solid rgba(115, 213, 177, 0.4)",
+            borderRadius: "10px",
+            color: "var(--success)",
+            marginBottom: "24px",
+            fontSize: "14px",
+          }}
+        >
+          <span>{createdBanner}</span>
           <button
             type="button"
-            className="button secondary small-button"
-            onClick={handleReset}
-            title="Reset simulasi state ke awal"
+            className="icon-button"
+            onClick={() => setCreatedBanner(null)}
+            aria-label="Tutup notifikasi"
+            style={{ width: "24px", height: "24px" }}
           >
-            Reset Data Demo
+            <Icon name="close" size={14} />
           </button>
+        </div>
+      )}
+
+      {/* Event Selection & Management Bar */}
+      <div className="dashboard-panel" style={{ marginBottom: "24px", padding: "16px 20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            <span className="field-label" style={{ fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Event yang Dikelola ({allEvents.length}):
+            </span>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {allEvents.map((ev) => {
+                const isSelected = ev.id === currentEvent.id;
+                return (
+                  <button
+                    key={ev.id}
+                    type="button"
+                    className={`button small-button ${isSelected ? "primary" : "secondary"}`}
+                    onClick={() => {
+                      protocolStore.setActiveEventId(ev.id);
+                      setSettleFeedback(null);
+                    }}
+                    style={{ fontSize: "13px" }}
+                  >
+                    {ev.name}
+                    {isSelected && (
+                      <span style={{ fontSize: "11px", opacity: 0.8, marginLeft: "4px" }}>
+                        (Aktif)
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <CreateEventDialog
+            onEventCreated={(newEventId) => {
+              const ev = protocolStore.getActiveEvent();
+              setCreatedBanner(`🎉 Event "${ev.name}" berhasil dibuat dan siap dikelola!`);
+            }}
+          />
         </div>
       </div>
 
@@ -350,8 +437,8 @@ export function OrganizerScreen() {
       <div className="event-overview">
         <div className="overview-heading">
           <div>
-            <h2>Event kamu</h2>
-            <p>Satu event. Kelola komitmen kehadiran dan refund on-chain di sini.</p>
+            <h2>Detail Event</h2>
+            <p>Kelola komitmen kehadiran dan refund on-chain untuk event ini.</p>
           </div>
           <span className="badge success">
             {currentStage === "registration-open"
@@ -363,14 +450,14 @@ export function OrganizerScreen() {
         </div>
         <div className="event-row">
           <div>
-            <h3>{event.name}</h3>
+            <h3>{currentEvent.name}</h3>
             <p>
-              {event.dateLabel} · {event.timeLabel} · {event.location}
+              {currentEvent.dateLabel} · {currentEvent.timeLabel} · {currentEvent.location}
             </p>
           </div>
           <div className="event-row-meta">
-            <span>Kapasitas {event.capacity} peserta</span>
-            <span>Deposit: 1 MON (100% Refundable)</span>
+            <span>Kapasitas {currentEvent.capacity} peserta</span>
+            <span>Deposit: {currentEvent.depositLabel || "1 MON"} (100% Refundable)</span>
           </div>
         </div>
       </div>
@@ -443,7 +530,7 @@ export function OrganizerScreen() {
             label: "Total Registered",
             value: stats?.registered ?? 0,
             icon: "users" as const,
-            subtext: "Deposit 1 MON terkunci",
+            subtext: `Deposit ${currentEvent.depositLabel || "1 MON"} terkunci`,
           },
           {
             label: "Total Checked-in",
@@ -476,7 +563,11 @@ export function OrganizerScreen() {
       </div>
 
       {/* Participant Lookup & Check-In */}
-      <ParticipantLookup currentStage={currentStage} />
+      <ParticipantLookup
+        currentStage={currentStage}
+        eventId={currentEvent.id}
+        depositLabel={currentEvent.depositLabel || "1 MON"}
+      />
 
       {/* No-Show Settlement Panel */}
       <section
@@ -544,7 +635,7 @@ export function OrganizerScreen() {
 
           {unCheckedAttendees.length === 0 ? (
             <div style={{ padding: "24px", textAlign: "center", color: "var(--muted)" }}>
-              Belum ada peserta yang mendaftar.
+              Belum ada peserta yang mendaftar pada event ini.
             </div>
           ) : (
             unCheckedAttendees.map((att) => {
@@ -590,7 +681,7 @@ export function OrganizerScreen() {
           )}
         </div>
         <p className="small muted action-note">
-          Hasil pembagian: 0.8 MON (80%) masuk ke wallet organizer, 0.2 MON (20%) ke NONGOL protocol.
+          Hasil pembagian: 80% masuk ke wallet organizer, 20% ke NONGOL protocol.
         </p>
       </section>
     </section>

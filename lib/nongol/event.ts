@@ -1,5 +1,22 @@
-/** Editorial sample from the Figma reference, not deployed event configuration. */
-export const featuredEvent = {
+export interface EventItem {
+  id: string;
+  name: string;
+  organizer: string;
+  description: string;
+  location: string;
+  image: string;
+  dateLabel: string;
+  timeLabel: string;
+  registrationDeadlineLabel: string;
+  checkInLabel: string;
+  capacity: number;
+  depositLabel: string;
+  isSample?: boolean;
+  createdAt?: number;
+}
+
+/** Initial featured event from the reference design */
+export const featuredEvent: EventItem = {
   id: "monad-builder-meetup",
   name: "Monad Builder Meetup",
   organizer: "Monad Community",
@@ -13,4 +30,5 @@ export const featuredEvent = {
   capacity: 100,
   depositLabel: "1 MON",
   isSample: true,
-} as const;
+  createdAt: 1700000000000,
+};

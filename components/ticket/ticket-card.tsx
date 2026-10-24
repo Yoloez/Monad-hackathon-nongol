@@ -1,6 +1,6 @@
 import { Brand } from "@/components/ui/brand";
 import { Icon } from "@/components/ui/icon";
-import { featuredEvent as event } from "@/lib/nongol/event";
+import { featuredEvent, type EventItem } from "@/lib/nongol/event";
 import {
   attendanceLabels,
   shortAddress,
@@ -8,7 +8,13 @@ import {
 } from "@/lib/nongol/view-models";
 import { TicketQr } from "./ticket-qr";
 
-export function TicketCard({ ticket }: { ticket: TicketViewModel }) {
+export function TicketCard({
+  ticket,
+  event = featuredEvent,
+}: {
+  ticket: TicketViewModel;
+  event?: EventItem;
+}) {
   const status = attendanceLabels[ticket.status];
   const demo = ticket.source === "demo";
   return (
@@ -51,7 +57,7 @@ export function TicketCard({ ticket }: { ticket: TicketViewModel }) {
           </div>
           <div>
             <span className="field-label">Deposit kehadiran</span>
-            <strong className="ticket-deposit">1 MON</strong>
+            <strong className="ticket-deposit">{event.depositLabel || "1 MON"}</strong>
           </div>
           <span className={`badge ${status.tone}`}>{status.title}</span>
         </div>

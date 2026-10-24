@@ -15,9 +15,11 @@ type IconName =
   | "ticket"
   | "users"
   | "logout"
-  | "loader";
+  | "loader"
+  | "plus";
 
 const paths: Record<IconName, React.ReactNode> = {
+  plus: <path d="M12 5v14m-7-7h14" />,
   "arrow-right": (
     <>
       <path d="M5 12h14" />
